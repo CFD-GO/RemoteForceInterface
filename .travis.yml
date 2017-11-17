@@ -11,5 +11,3 @@ addons:
 script:
     - make
 
-after_failure:
-    - dmesg
