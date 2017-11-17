@@ -1,0 +1,15 @@
+language: c
+
+addons:
+  apt:
+    packages:
+      - openmpi-bin
+      - libopenmpi-dev
+      - lcov
+      - time
+
+script:
+    - make
+
+after_failure:
+    - dmesg
