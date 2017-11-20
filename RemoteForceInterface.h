@@ -20,12 +20,10 @@ namespace rfi {
 #define RFI_DATA_POS 1
 #define RFI_DATA_VEL 4
 #define RFI_DATA_ANGVEL 7
-#define RFI_DATA_IN_SIZE 10
 
 #define RFI_DATA_VOL 0
 #define RFI_DATA_FORCE 1
-#define RFI_DATA_SIGMA 4
-#define RFI_DATA_OUT_SIZE 13
+#define RFI_DATA_MOMENT 4
 
 #define RFI_DATA_SIZE 13
 
@@ -37,6 +35,9 @@ namespace rfi {
 #define RFI_ArrayOfStructures 0x01
 #define RFI_StructureOfArrays 0x02
 
+#define RFI_NRot 0x01
+#define RFI_Rot 0x02
+
 template < typename real_t >
 class RemoteForceInterface {
 private:
@@ -46,7 +47,8 @@ private:
   int workers; ///< Number of workers
   int masters; ///< Number of masters
   MPI_Comm intercomm; ///< Intercomm between master and slave
-  size_t totsize; ///< Total size of the tab
+  size_t ntab; ///< Length of tab
+  size_t totsize; ///< Total number of particles
   std::vector<real_t> tab; ///< Array storing all the data of particles
   std::vector<size_t> sizes; ///< Array of sizes of data recieved from each slave/master 
   std::vector<size_t> offsets; ///< Array of offsets of data recieved from each slave/master
@@ -54,8 +56,10 @@ private:
   std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
   MPI_Datatype MPI_REAL_T; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
   int storage; ///< Storage type (either RFI_ArrayOfStructures, RFI_StructureOfArrays)
+  int particle_size;
+  bool rot;
 public:
-  RemoteForceInterface(int, int);
+  RemoteForceInterface(int, int, int);
   ~RemoteForceInterface();
   
   int Spawn(char * worker_program, char * args[]);
@@ -65,7 +69,18 @@ public:
   void SetParticles();
   void Close();
   inline bool Active() { return intercomm != MPI_COMM_NULL; }
+  inline bool Rot() { return rot; }
   inline int space_for_workers() { return universe_size - world_size; };
+  inline real_t& Data(size_t i, int j) {
+    if (storage == RFI_ArrayOfStructures) {
+      return tab[i*particle_size + j];
+    } else {
+      return tab[i + j*totsize];
+    }
+  }
+  inline void SetData(size_t i, int j, real_t val) {
+    Data(i,j) = val;
+  }
 };
 
 };

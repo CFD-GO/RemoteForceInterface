@@ -16,7 +16,7 @@
 namespace rfi {
 
 template < typename real_t >
-RemoteForceInterface < real_t >::RemoteForceInterface(int A, int B) : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
+RemoteForceInterface < real_t >::RemoteForceInterface(int A, int B, int C) : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
    int *universe_sizep, flag;
    MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
    MPI_Attr_get(MPI_COMM_WORLD, MPI_UNIVERSE_SIZE, &universe_sizep, &flag);  
