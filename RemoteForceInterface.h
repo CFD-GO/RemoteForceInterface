@@ -29,16 +29,18 @@ namespace rfi {
 
 #define MPI_SIZE_T MPI_UNSIGNED_LONG
 
-#define RFI_ForceCalculator 0x01
-#define RFI_DynamicsIntegrator 0x02
-
 #define RFI_ArrayOfStructures 0x01
 #define RFI_StructureOfArrays 0x02
 
 #define RFI_NRot 0x01
 #define RFI_Rot 0x02
 
-template < typename real_t >
+enum rfi_type_t {
+  ForceCalculator,
+  ForceIntegrator
+};
+
+template < typename real_t, rfi_type_t rfi_type >
 class RemoteForceInterface {
 private:
   int world_size; ///< Size of current program world
@@ -58,9 +60,13 @@ private:
   int storage; ///< Storage type (either RFI_ArrayOfStructures, RFI_StructureOfArrays)
   int particle_size;
   bool rot;
+  bool active;
+  bool connected;
 public:
-  RemoteForceInterface(int, int, int);
+  RemoteForceInterface();
   ~RemoteForceInterface();
+  
+  int Negotiate(int, int);
   
   int Spawn(char * worker_program, char * args[]);
   inline const size_t size() const { return totsize; }
@@ -68,7 +74,10 @@ public:
   void GetParticles();
   void SetParticles();
   void Close();
-  inline bool Active() { return intercomm != MPI_COMM_NULL; }
+  inline bool Active() { return active; }
+  inline bool Connected() { return connected; }
+  inline int Workers() { return workers; }
+  inline size_t& Size(int i) { return sizes[i]; }
   inline bool Rot() { return rot; }
   inline int space_for_workers() { return universe_size - world_size; };
   inline real_t& Data(size_t i, int j) {
