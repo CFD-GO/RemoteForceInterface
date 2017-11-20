@@ -1,0 +1,48 @@
+<?R
+   tab = read.csv("tab.csv")
+   for (i in seq_len(nrow(tab))) {
+      f = tab[i,,drop=FALSE]
+      filename = paste0("slave_", f$stub, ".cpp")
+      cat(filename,"---------\n");
+      sink(filename);
+?>
+#include <mpi.h>
+#include "../../RemoteForceInterface.hpp"
+#include "ForceIntegrator.hpp"
+#include "ForceCalculator.hpp"
+
+int main(int argc, char *argv[])
+{
+   int ret;
+   MPI_Init(&argc, &argv);
+
+   MPI_Comm parent;
+
+   MPI_Comm_get_parent(&parent);
+   if (parent == MPI_COMM_NULL) {
+     error("No parent!\n");
+     return -1;
+   }
+
+   rfi::RemoteForceInterface< <?%s f$real_t ?>, rfi::<?%s f$type ?> > RFI(parent);
+   
+   RFI.name = "slave";
+   
+   if (! RFI.Connected() ) {
+   /* This should never happen */
+     ERROR("Not connected. Exit."); // LCOV_EXCL_LINE
+     return -1; // LCOV_EXCL_LINE
+   }
+   
+   ret = RFI.Negotiate(<?%s f$storage_flag ?>, RFI_<?%s f$rot ?>);
+   if (ret) return ret;
+
+   Run<?%s f$type ?>(RFI);
+
+   MPI_Finalize();
+   return 0;
+}
+<?R
+      sink();
+   }
+?>

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+test -z "$1" && exit -1
+MASTERS=$1
+shift
+test -z "$1" && exit -1
+SLAVES=$1
+shift
+
+ALL=$[ $MASTERS + $SLAVES ]
+echo "Running with $MASTERS masters and $SLAVES slaves ($ALL in total)"
+
+for i in $(seq $ALL); do echo localhost; done >hostfile.tmp
+trap "rm hostfile.tmp" EXIT
+mpirun -np 1 -hostfile hostfile.tmp ./master

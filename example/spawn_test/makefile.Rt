@@ -1,0 +1,23 @@
+<?R
+   tab = read.csv("tab.csv")
+   tab$master = paste0("master_", tab$stub)
+   tab$slave = paste0("slave_", tab$stub)
+?>
+all: <?R cat(c(tab$master,tab$slave)) ?>
+
+test: all
+
+<?R
+   for (i in seq_len(nrow(tab))) {
+      f = tab[i,,drop=FALSE]
+?>
+<?%s f$master ?>.o : <?%s f$master ?>.cpp ../../RemoteForceInterface.hpp
+<?%s f$slave ?>.o : <?%s f$slave ?>.cpp ../../RemoteForceInterface.hpp
+
+<?R } ?>
+
+% : %.o
+	mpic++ -o $@ $(CXXFLAGS) $^
+
+%.o : %.cpp
+	mpic++ -c -o $@ $(CXXFLAGS) $<
