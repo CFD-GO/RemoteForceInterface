@@ -7,7 +7,7 @@ master.o : master.cpp ../../RemoteForceInterface.hpp
 slave.o : slave.cpp ../../RemoteForceInterface.hpp
 
 % : %.o
-	mpic++ -o $@ $^
+	mpic++ -o $@ $(CXXFLAGS) $^
 
 %.o : %.cpp
-	mpic++ -c -o $@ $<
+	mpic++ -c -o $@ $(CXXFLAGS) $<

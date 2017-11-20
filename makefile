@@ -10,4 +10,4 @@ test : all example/spawn/test
 RemoteForceInterface.o : RemoteForceInterface.cpp RemoteForceInterface.hpp RemoteForceInterface.h
 
 %.o : %.cpp
-	mpic++ -c -o $@ $<
+	mpic++ -c -o $@ $(CXXFLAGS) $<
