@@ -57,22 +57,29 @@ private:
   std::vector<MPI_Request> reqs; ///< Array of MPI requests for non-blocking calls
   std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
   MPI_Datatype MPI_REAL_T; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
+  MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
   int storage; ///< Storage type (either RFI_ArrayOfStructures, RFI_StructureOfArrays)
   int particle_size;
   bool rot;
   bool active;
   bool connected;
+  int my_type;
+  int Connect();
+  void Zero();
+  void Finish();
 public:
+  char * name;
   RemoteForceInterface(MPI_Comm intercomm_ = MPI_COMM_NULL);
   ~RemoteForceInterface();
   
   int Negotiate(int, int);
-  
+  void Alloc();  
   int Spawn(char * worker_program, char * args[]);
   inline const size_t size() const { return totsize; }
   inline real_t* Particles() { return &tab[0]; }
-  void GetParticles();
-  void SetParticles();
+  void SendSizes();
+  void SendParticles();
+  void SendForces();
   void Close();
   inline bool Active() { return active; }
   inline bool Connected() { return connected; }

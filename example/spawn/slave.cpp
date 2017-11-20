@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
    }
 
    rfi::RemoteForceInterface< double, rfi::ForceIntegrator > RFI(parent);
+   RFI.name = "slave";
    
    if (! RFI.Connected() ) {
      ERROR("Not connected. Exit.");
@@ -26,6 +27,7 @@ int main(int argc, char *argv[])
    for (int i = 0; i < RFI.Workers(); i++) {
      RFI.Size(i)++;
    }
+   RFI.Alloc();
    for (int i = 0; i < RFI.Workers(); i++) {
      RFI.SetData(i, RFI_DATA_R, 1.0);
      RFI.SetData(i, RFI_DATA_POS+0,  0.0);
@@ -41,9 +43,11 @@ int main(int argc, char *argv[])
      }
    }
    
-   while ( RFI.Active() ) {
-       RFI.SetParticles();
-       RFI.GetParticles();
+   for (int iter = 0; iter < 10; iter++) {
+       if ( ! RFI.Active() ) break;
+       RFI.SendSizes();
+       RFI.SendParticles();
+       RFI.SendForces();
    }
    
    RFI.Close();

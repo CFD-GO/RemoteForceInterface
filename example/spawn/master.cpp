@@ -9,15 +9,19 @@ int main(int argc, char *argv[])
    MPI_Init(&argc, &argv);
 
    rfi::RemoteForceInterface< double, rfi::ForceCalculator > RFI;
-   
+   RFI.name = "master";
+      
    ret = RFI.Spawn("./slave", MPI_ARGV_NULL);
    if (ret) return ret;
    
    ret = RFI.Negotiate(RFI_ArrayOfStructures | RFI_StructureOfArrays, RFI_Rot);
+
    if (ret) return ret;
    
-   while ( RFI.Active() ) {
-       RFI.GetParticles();
+   for (int iter = 0; iter < 15; iter++) {
+       if ( ! RFI.Active() ) break;
+       RFI.SendSizes();
+       RFI.SendParticles();
        for (size_t i = 0; i < RFI.size(); i++) {
          RFI.SetData(i, RFI_DATA_VOL,       1.0);
          RFI.SetData(i, RFI_DATA_FORCE+0,   0.0);
@@ -29,7 +33,7 @@ int main(int argc, char *argv[])
            RFI.SetData(i, RFI_DATA_MOMENT+2, 0.0);
          }
        }         
-       RFI.SetParticles();
+       RFI.SendForces();
    }
    
    RFI.Close();
