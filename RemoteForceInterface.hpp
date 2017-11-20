@@ -15,8 +15,8 @@
 
 namespace rfi {
 
-template < typename real_t, StorageType Storage >
-RemoteForceInterface < real_t, Storage >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
+template < typename real_t >
+RemoteForceInterface < real_t >::RemoteForceInterface(int A, int B) : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
    int *universe_sizep, flag;
    MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
    MPI_Attr_get(MPI_COMM_WORLD, MPI_UNIVERSE_SIZE, &universe_sizep, &flag);  
@@ -25,15 +25,15 @@ RemoteForceInterface < real_t, Storage >::RemoteForceInterface() : workers(0), m
    } else universe_size = *universe_sizep;
 }
 
-template < typename real_t, StorageType Storage >
-RemoteForceInterface < real_t, Storage >::~RemoteForceInterface() {
+template < typename real_t >
+RemoteForceInterface < real_t >::~RemoteForceInterface() {
   if (intercomm != MPI_COMM_NULL) {
     MPI_Comm_free(&intercomm);
   }
 }
 
-template < typename real_t, StorageType Storage >
-int RemoteForceInterface < real_t, Storage >::Start(char * worker_program, char * args[]) {
+template < typename real_t >
+int RemoteForceInterface < real_t >::Spawn(char * worker_program, char * args[]) {
    if (intercomm != MPI_COMM_NULL) {
     error("RemoteForceInterface(M) Already started\n");
     return -2;
@@ -67,8 +67,8 @@ int RemoteForceInterface < real_t, Storage >::Start(char * worker_program, char 
    return 0;
 }
 
-template < typename real_t, StorageType Storage >
-void RemoteForceInterface < real_t, Storage >::Close() {
+template < typename real_t >
+void RemoteForceInterface < real_t >::Close() {
   if (intercomm == MPI_COMM_NULL) return;
   output("RemoteForceInterface(M) Closing ...\n");
   totsize = 0;
@@ -81,8 +81,8 @@ void RemoteForceInterface < real_t, Storage >::Close() {
 }
 
 
-template < typename real_t, StorageType Storage >
-void RemoteForceInterface < real_t, Storage >::GetParticles() {
+template < typename real_t >
+void RemoteForceInterface < real_t >::GetParticles() {
     if (intercomm == MPI_COMM_NULL) return;
     debug1("RemoteForceInterface(M) Exchange of sizes ...\n");
     MPI_Alltoall(NULL, 0, MPI_SIZE_T, &sizes[0], 1, MPI_SIZE_T, intercomm);
@@ -98,8 +98,8 @@ void RemoteForceInterface < real_t, Storage >::GetParticles() {
     MPI_Waitall(workers, &reqs[0], &stats[0]);
 }
 
-template < typename real_t, StorageType Storage >
-void RemoteForceInterface < real_t, Storage >::SetParticles() {
+template < typename real_t >
+void RemoteForceInterface < real_t >::SetParticles() {
     if (intercomm == MPI_COMM_NULL) return;
     debug1("RemoteForceInterface(M) Receiving ...\n");
     for (int i=0; i<workers; i++) {

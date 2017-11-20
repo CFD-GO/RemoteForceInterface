@@ -1,5 +1,10 @@
-all:
-	echo "CZESC"
+all: master
 
 test: all
-	echo "HEJ"
+
+
+% : %.o
+	mpic++ -o $@ $^
+
+%.o : %.cpp
+	mpic++ -c -o $@ $<

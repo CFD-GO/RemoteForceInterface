@@ -31,30 +31,34 @@ namespace rfi {
 
 #define MPI_SIZE_T MPI_UNSIGNED_LONG
 
-enum StorageType {
- ArrayOfStructures,
- StructureOfArrays
-};
+#define RFI_ForceCalculator 0x01
+#define RFI_DynamicsIntegrator 0x02
 
-template < typename real_t, StorageType Storage >
+#define RFI_ArrayOfStructures 0x01
+#define RFI_StructureOfArrays 0x02
+
+template < typename real_t >
 class RemoteForceInterface {
 private:
-  int world_size, universe_size;
-  int rank;
-  int workers;
-  int masters;
-  MPI_Comm intercomm;
-  size_t totsize;
-  std::vector<real_t> tab;
-  std::vector<size_t> sizes;
-  std::vector<size_t> offsets;
-  std::vector<MPI_Request> reqs;
-  std::vector<MPI_Status> stats;
-  MPI_Datatype MPI_REAL_T;
+  int world_size; ///< Size of current program world
+  int universe_size; ///< Size of the universe (both integrated programs)
+  int rank; ///< My rank in world
+  int workers; ///< Number of workers
+  int masters; ///< Number of masters
+  MPI_Comm intercomm; ///< Intercomm between master and slave
+  size_t totsize; ///< Total size of the tab
+  std::vector<real_t> tab; ///< Array storing all the data of particles
+  std::vector<size_t> sizes; ///< Array of sizes of data recieved from each slave/master 
+  std::vector<size_t> offsets; ///< Array of offsets of data recieved from each slave/master
+  std::vector<MPI_Request> reqs; ///< Array of MPI requests for non-blocking calls
+  std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
+  MPI_Datatype MPI_REAL_T; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
+  int storage; ///< Storage type (either RFI_ArrayOfStructures, RFI_StructureOfArrays)
 public:
-  RemoteForceInterface();
+  RemoteForceInterface(int, int);
   ~RemoteForceInterface();
-  int Start(char * worker_program, char * args[]);
+  
+  int Spawn(char * worker_program, char * args[]);
   inline const size_t size() const { return totsize; }
   inline real_t* Particles() { return &tab[0]; }
   void GetParticles();
