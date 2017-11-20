@@ -6,10 +6,18 @@ int main(int argc, char *argv[])
    int ret;
    MPI_Init(&argc, &argv);
 
-   rfi::RemoteForceInterface< double, rfi::ForceIntegrator > RFI;
+   MPI_Comm parent;
+
+   MPI_Comm_get_parent(&parent);
+   if (parent == MPI_COMM_NULL) {
+     error("No parent!\n");
+     return -1;
+   }
+
+   rfi::RemoteForceInterface< double, rfi::ForceIntegrator > RFI(parent);
    
    if (! RFI.Connected() ) {
-     ERROR("I'm not a slave. Exit.");
+     ERROR("Not connected. Exit.");
      return -1;
    }
    

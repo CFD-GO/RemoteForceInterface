@@ -63,7 +63,7 @@ private:
   bool active;
   bool connected;
 public:
-  RemoteForceInterface();
+  RemoteForceInterface(MPI_Comm intercomm_ = MPI_COMM_NULL);
   ~RemoteForceInterface();
   
   int Negotiate(int, int);

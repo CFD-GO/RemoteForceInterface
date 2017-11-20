@@ -16,14 +16,18 @@
 namespace rfi {
 
 template < typename real_t, rfi_type_t rfi_type >
-RemoteForceInterface < real_t, rfi_type >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
+RemoteForceInterface < real_t, rfi_type >::RemoteForceInterface(MPI_Comm intercomm_) : workers(0), masters(0), intercomm(intercomm_), totsize(0) {
    int *universe_sizep, flag;
    MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
    MPI_Attr_get(MPI_COMM_WORLD, MPI_UNIVERSE_SIZE, &universe_sizep, &flag);  
    if (!flag) { 
      universe_size = 0;
    } else universe_size = *universe_sizep;
-   connected = false;
+   if (intercomm != MPI_COMM_NULL) {
+      connected = true;
+   } else {
+      connected = false;
+   }
    active = false;
 }
 
