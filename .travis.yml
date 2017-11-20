@@ -9,7 +9,7 @@ addons:
       - time
 
 script:
-    - export CXXFLAGS="-ftest-coverage"
+    - export CXXFLAGS="-fprofile-arcs -ftest-coverage"
     - make
     - make test
 
