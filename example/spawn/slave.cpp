@@ -18,8 +18,8 @@ int main(int argc, char *argv[])
    RFI.name = "slave";
    
    if (! RFI.Connected() ) {
-     ERROR("Not connected. Exit.");
-     return -1;
+     ERROR("Not connected. Exit."); //LCOV_EXCL_LINE
+     return -1; //LCOV_EXCL_LINE
    }
    
    RFI.Negotiate( RFI_ArrayOfStructures | RFI_StructureOfArrays, RFI_Rot );
