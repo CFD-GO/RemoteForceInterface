@@ -21,7 +21,8 @@ RemoteForceInterface < real_t, rfi_type >::RemoteForceInterface(MPI_Comm interco
    MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
    MPI_Attr_get(MPI_COMM_WORLD, MPI_UNIVERSE_SIZE, &universe_sizep, &flag);  
    if (!flag) { 
-     universe_size = 0;
+     /* This will not happen with most common MPI implementations */
+     universe_size = 0; // LCOV_EXCL_LINE
    } else universe_size = *universe_sizep;
    
    connected = false;
@@ -45,7 +46,7 @@ RemoteForceInterface < real_t, rfi_type >::RemoteForceInterface(MPI_Comm interco
 template < typename real_t, rfi_type_t rfi_type >
 RemoteForceInterface < real_t, rfi_type >::~RemoteForceInterface() {
   if (intercomm != MPI_COMM_NULL) {
-    MPI_Comm_free(&intercomm);
+    ERROR("RFI: This should never happen\n"); // LCOV_EXCL_LINE
   }
 }
 

@@ -18,7 +18,8 @@ int main(int argc, char *argv[])
    RFI.name = "slave";
    
    if (! RFI.Connected() ) {
-     ERROR("Not connected. Exit."); //LCOV_EXCL_LINE
+   /* This should never happen */
+     ERROR("Not connected. Exit."); // LCOV_EXCL_LINE
      return -1; // LCOV_EXCL_LINE
    }
    
