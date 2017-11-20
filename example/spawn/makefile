@@ -1,6 +1,7 @@
 all: master
 
 test: all
+	./master
 
 
 master.o : master.cpp ../../RemoteForceInterface.hpp
