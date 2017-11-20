@@ -1,7 +1,7 @@
 
 all : RemoteForceInterface.o
 
-test : all example/spawn/test
+test : all example/spawn/test example/spawn_test/test
 
 %/test :
 	@echo Running test for $(dir $@)
