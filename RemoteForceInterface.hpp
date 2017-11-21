@@ -236,10 +236,10 @@ void RemoteForceInterface < real_t, rfi_type >::SendForces() {
     debug1("RFI: %s: SendForces ...\n", name);
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
       if (rfi_type == ForceCalculator) {
-        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, i, intercomm);
+        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF1, intercomm);
       } else {
         MPI_Status stat;
-        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, i, intercomm, &stat);
+        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF1, intercomm, &stat);
       }
     }
 }
@@ -251,9 +251,9 @@ void RemoteForceInterface < real_t, rfi_type >::SendParticles() {
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
       if (rfi_type == ForceCalculator) {
         MPI_Status stat;
-        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, i, intercomm, &stat);
+        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm, &stat);
       } else {
-        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, i, intercomm);
+        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm);
       }
     }
 }

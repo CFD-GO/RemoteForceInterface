@@ -9,7 +9,7 @@ addons:
       - time
 
 script:
-    - export CXXFLAGS="-fprofile-arcs -ftest-coverage"
+    - export CXXFLAGS="-fprofile-arcs -ftest-coverage -Wno-write-strings"
     - make
     - timeout 60s make test
 
