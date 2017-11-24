@@ -1,0 +1,3 @@
+[submodule "MPI_MPMD"]
+	path = MPI_MPMD
+	url = git@github.com:CFD-GO/MPI_MPMD.git
