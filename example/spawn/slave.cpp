@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
      return -1;
    }
 
-   rfi::RemoteForceInterface< double, rfi::ForceIntegrator > RFI(parent);
+   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle > RFI(parent);
    RFI.name = "slave";
    
    if (! RFI.Connected() ) {

@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
    
    MPMD.Identify();
 
-   rfi::RemoteForceInterface< double, rfi::ForceCalculator > RFI(inter.work);
+   rfi::RemoteForceInterface< rfi::ForceCalculator, rfi::RotParticle > RFI(inter.work);
    RFI.name = "ForceCalculator";
       
    ret = RFI.Negotiate(RFI_StructureOfArrays, RFI_Rot);

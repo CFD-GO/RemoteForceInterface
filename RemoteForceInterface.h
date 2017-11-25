@@ -39,8 +39,16 @@ enum rfi_type_t {
   ForceCalculator,
   ForceIntegrator
 };
+enum rfi_rot_t {
+  RotParticle,
+  NRotParticle
+};
+enum rfi_storage_t {
+  ArrayOfStructures,
+  StructureOfArrays
+};
 
-template < typename real_t, rfi_type_t rfi_type >
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE = ArrayOfStructures, typename real_t = double >
 class RemoteForceInterface {
 private:
   int world_size; ///< Size of current program world

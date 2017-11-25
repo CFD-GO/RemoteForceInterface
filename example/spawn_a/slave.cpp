@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
      ERROR("Didn't find parent in MPMD\n");
      return -1;
    }
-   rfi::RemoteForceInterface< double, rfi::ForceIntegrator > RFI(inter.work);
+   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle > RFI(inter.work);
    RFI.name = "ForceIntegrator";
    
    if (! RFI.Connected() ) {

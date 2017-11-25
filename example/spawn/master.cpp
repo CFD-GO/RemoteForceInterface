@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
    int ret;
    MPI_Init(&argc, &argv);
 
-   rfi::RemoteForceInterface< double, rfi::ForceCalculator > RFI;
+   rfi::RemoteForceInterface< rfi::ForceCalculator, rfi::RotParticle > RFI;
    RFI.name = "master";
       
    ret = RFI.Spawn("./slave", MPI_ARGV_NULL);
