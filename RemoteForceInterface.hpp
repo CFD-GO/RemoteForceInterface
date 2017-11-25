@@ -131,7 +131,7 @@ int RemoteForceInterface < real_t, rfi_type >::Connect() {
    MPI_Comm_rank(intercomm, &rank);
    sizes.resize(workers, 0);
    offsets.resize(workers+1, 0);
-   output("done %d\n",my_type);
+   output("Connected %d. %d %d %d\n",my_type, workers, masters, rank);
    connected=true;
    Zero();
    return 0;
