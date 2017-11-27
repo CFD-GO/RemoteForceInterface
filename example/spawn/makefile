@@ -27,8 +27,8 @@ master_1_2_test : master
 	timeout 5s ./run 1 2
 	@echo
 
-master.o : master.cpp ../../RemoteForceInterface.hpp
-slave.o : slave.cpp ../../RemoteForceInterface.hpp
+master.o : master.cpp ../../RemoteForceInterface.hpp ../../MPMD.hpp
+slave.o : slave.cpp ../../RemoteForceInterface.hpp ../../MPMD.hpp
 
 % : %.o
 	mpic++ -o $@ $(CXXFLAGS) $^

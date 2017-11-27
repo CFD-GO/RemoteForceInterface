@@ -1,41 +1,34 @@
 #include <mpi.h>
+#include "../../MPMD.hpp"
 #include "../../RemoteForceInterface.hpp"
-
+#include "../Common.hpp"
 
 
 int main(int argc, char *argv[])
 {
    int ret;
-   MPI_Init(&argc, &argv);
-
+   MPMDHelper MPMD;
    rfi::RemoteForceInterface< rfi::ForceCalculator, rfi::RotParticle > RFI;
-   RFI.name = "master";
-      
-   ret = RFI.Spawn("./slave", MPI_ARGV_NULL);
-   if (ret) return ret;
-   
-   ret = RFI.Negotiate(RFI_ArrayOfStructures | RFI_StructureOfArrays, RFI_Rot);
 
-   if (ret) return ret;
-   
-   for (int iter = 0; iter < 15; iter++) {
-       if ( ! RFI.Active() ) break;
-       RFI.SendSizes();
-       RFI.SendParticles();
-       for (size_t i = 0; i < RFI.size(); i++) {
-         RFI.SetData(i, RFI_DATA_VOL,       1.0);
-         RFI.SetData(i, RFI_DATA_FORCE+0,   0.0);
-         RFI.SetData(i, RFI_DATA_FORCE+1, -9.81);
-         RFI.SetData(i, RFI_DATA_FORCE+2,   0.0);
-         if (RFI.Rot()) {
-           RFI.SetData(i, RFI_DATA_MOMENT+0, 0.0);
-           RFI.SetData(i, RFI_DATA_MOMENT+1, 0.0);
-           RFI.SetData(i, RFI_DATA_MOMENT+2, 0.0);
-         }
-       }         
-       RFI.SendForces();
+   MPI_Init(&argc, &argv);
+   MPMD.Init(MPI_COMM_WORLD, "MASTER");
+
+   int how_many_spawn = MPMD.universe_size - MPMD.world_size;
+   if (how_many_spawn < 1) {
+     ERROR("Not enough space for spawning\n");
+     exit(-1);
    }
+   printf("how_many_spawn: %d\n", how_many_spawn);
+   MPMDIntercomm inter = MPMD.Spawn("./slave", MPI_ARGV_NULL, how_many_spawn, MPI_INFO_NULL);
    
+   MPMD.Identify();
+
+   ret = RFI.Connect(inter.work);
+   if (ret) return ret;
+   assert(RFI.Connected());
+   
+   RunForceCalculator(RFI);
+
    RFI.Close();
 
    MPI_Finalize();

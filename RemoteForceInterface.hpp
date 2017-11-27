@@ -16,30 +16,27 @@
 namespace rfi {
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::RemoteForceInterface(MPI_Comm intercomm_) : workers(0), masters(0), intercomm(intercomm_), totsize(0) {
-   int *universe_sizep, flag;
-   MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
-   MPI_Attr_get(MPI_COMM_WORLD, MPI_UNIVERSE_SIZE, &universe_sizep, &flag);  
-   if (!flag) { 
-     /* This will not happen with most common MPI implementations */
-     universe_size = 0; // LCOV_EXCL_LINE
-   } else universe_size = *universe_sizep;
-   
+RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
    connected = false;
    active = false;
    my_type = TYPE;
-   name = "N/A";
+   if (TYPE == ForceIntegrator) {
+     name = "ForceIntegrator";
+   } else if (TYPE == ForceCalculator) {
+     name = "ForceCalculator";
+   } else {
+     name = "N/A";
+     ERROR("Unknown type of RemoteForceInterface");
+     exit(-1);
+   }
    particle_size = 0;
    if (sizeof(real_t) == 8)
     MPI_REAL_T = MPI_DOUBLE;
    else if (sizeof(real_t) == 4)
     MPI_REAL_T = MPI_FLOAT;
    else {
-    ERROR("Unknown type in RemoteForceInterface");
-   }
-   
-   if (intercomm != MPI_COMM_NULL) {
-     Connect();
+    ERROR("Unknown type real_t in RemoteForceInterface");
+    exit(-1);
    }
 }
 
@@ -51,55 +48,15 @@ RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::~RemoteForceInterface() {
 }
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate(int storage_type, int rot_or_nrot) {
+int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate() {
   if (! connected) return -1;
   output("RFI: %s: Starting negotiations ...\n", name);
   MPI_Barrier(intercomm);
-  int other_type;
-  MPI_Allreduce( &my_type, &other_type, 1, MPI_INT, MPI_MAX, intercomm);
-  output("RFI: %s: my_type=%d other_type=%d\n",name,my_type, other_type);
-  if (my_type == ForceCalculator) {
-   if (other_type != ForceIntegrator) return -1;
-  } else if (my_type == ForceIntegrator) {
-   if (other_type != ForceCalculator) return -1;
-  } else {
-    ERROR("RFI: %s: Unknown type\n", name);
-    return -1;
-  }
-  int other_storage_type;
-  MPI_Allreduce( &storage_type, &other_storage_type, 1, MPI_INT, MPI_BAND, intercomm);
-  output("RFI: %s: my_storage_type=%d other_storage_type=%d\n", name, storage_type, other_storage_type);
-  storage = other_storage_type & storage_type;
-  if (storage == 0) {
-    ERROR("RFI: %s: Cannot agree on storage type\n", name);
-    return -1;
-  }
-  if (storage & RFI_ArrayOfStructures) 
-   storage = RFI_ArrayOfStructures;
-  else if (storage & RFI_StructureOfArrays)
-   storage = RFI_StructureOfArrays;
-  else {
-    ERROR("RFI: %s: Unknown storage type\n", name);
-    return -1;
-  }
-  output("RFI: %s: Decided on storage type: %d\n", name, storage);
 
-  int other_rot_or_nrot;
-  MPI_Allreduce( &rot_or_nrot, &other_rot_or_nrot, 1, MPI_INT, MPI_BAND, intercomm);
-  output("RFI: %s: my_rot_or_nrot=%d other_rot_or_nrot=%d\n", name, rot_or_nrot, other_rot_or_nrot);
-  rot_or_nrot = other_rot_or_nrot & rot_or_nrot;
-  if (rot_or_nrot == 0) {
-    ERROR("RFI: %s: Cannot agree on rot_or_nrot type\n", name);
-    return -1;
-  }
-  if (rot_or_nrot & RFI_Rot) 
-   rot = true;
-  else if (rot_or_nrot & RFI_NRot)
-   rot = false;
-  else {
-    ERROR("RFI: %s: Unknown rot_or_nrot type\n",name);
-    return -1;
-  }
+  int my_rot = ROT == RotParticle;
+  int other_rot;
+  MPI_Allreduce( &my_rot, &other_rot, 1, MPI_INT, MPI_LAND, intercomm);
+  rot = my_rot && other_rot;
   
   if (rot) {
    particle_size = 20;
@@ -109,12 +66,12 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate(int storage_t
    output("RFI: %s: Decided to calculate without rotation\n",name);
   }
 
-  if (storage == RFI_ArrayOfStructures) {
-    output("Adding type ...\n");
+  if (STORAGE == ArrayOfStructures) {
     MPI_Type_contiguous(particle_size, MPI_REAL_T, &MPI_PARTICLE);
   } else {
     MPI_Type_vector(particle_size, 1, totsize, MPI_REAL_T, &MPI_PARTICLE);
   }
+  output("Adding type ...\n");
   MPI_Type_commit(&MPI_PARTICLE);
 
   output("RFI: %s: Finished negotiations\n",name);
@@ -125,7 +82,12 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate(int storage_t
 
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Connect() {
+int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Connect(MPI_Comm intercomm_) {
+   if (connected) {
+     ERROR("Already connected");
+     return -1;
+   }
+   intercomm = intercomm_;
    MPI_Comm_remote_size(intercomm, &workers);
    MPI_Comm_size(intercomm, &masters);
    MPI_Comm_rank(intercomm, &rank);
@@ -134,31 +96,7 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Connect() {
    output("Connected %d. %d %d %d\n",my_type, workers, masters, rank);
    connected=true;
    Zero();
-   return 0;
-}
-
-
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Spawn(char * worker_program, char * args[]) {
-   if (Connected()) {
-    error("RFI: %s: Already started\n", name);
-    return -2;
-   }
-   if (universe_size == world_size) {
-    ERROR("No room to start workers"); 
-    return -1;
-   }
-   MPI_Comm everyone;
-   MPI_Comm_spawn(worker_program, args, universe_size - world_size,
-             MPI_INFO_NULL, 0, MPI_COMM_WORLD, &everyone,  
-             MPI_ERRCODES_IGNORE); 
-             
-//   MPI_Group group;
-//   MPI_Comm_group(MPI_COMM_WORLD, &group);
-//   MPI_Comm_create(everyone, group, &intercomm);
-   intercomm = everyone;
-   
-   return Connect();
+   return Negotiate();
 }
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
@@ -168,9 +106,10 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Alloc() {
     totsize = offsets[workers];
     ntab = totsize * particle_size;
     if (ntab > tab.size()) tab.resize(ntab);
-    if (storage == RFI_ArrayOfStructures) {
+    if (STORAGE == ArrayOfStructures) {
     } else {
       MPI_Type_vector(particle_size, 1, totsize, MPI_REAL_T, &MPI_PARTICLE);
+      output("Adding type ...\n");
       MPI_Type_commit(&MPI_PARTICLE);
     }
 }

@@ -29,11 +29,6 @@ namespace rfi {
 
 #define MPI_SIZE_T MPI_UNSIGNED_LONG
 
-#define RFI_ArrayOfStructures 0x01
-#define RFI_StructureOfArrays 0x02
-
-#define RFI_NRot 0x01
-#define RFI_Rot 0x02
 
 enum rfi_type_t {
   ForceCalculator,
@@ -47,6 +42,7 @@ enum rfi_storage_t {
   ArrayOfStructures,
   StructureOfArrays
 };
+
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE = ArrayOfStructures, typename real_t = double >
 class RemoteForceInterface {
@@ -66,23 +62,21 @@ private:
   std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
   MPI_Datatype MPI_REAL_T; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
   MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
-  int storage; ///< Storage type (either RFI_ArrayOfStructures, RFI_StructureOfArrays)
   int particle_size;
   bool rot;
   bool active;
   bool connected;
   int my_type;
-  int Connect();
+  int Negotiate();
   void Zero();
   void Finish();
 public:
   char * name;
-  RemoteForceInterface(MPI_Comm intercomm_ = MPI_COMM_NULL);
+  RemoteForceInterface();
   ~RemoteForceInterface();
   
-  int Negotiate(int, int);
+  int Connect(MPI_Comm intercomm_);
   void Alloc();  
-  int Spawn(char * worker_program, char * args[]);
   inline const size_t size() const { return totsize; }
   inline real_t* Particles() { return &tab[0]; }
   void SendSizes();
@@ -96,7 +90,7 @@ public:
   inline bool Rot() { return rot; }
   inline int space_for_workers() { return universe_size - world_size; };
   inline real_t& Data(size_t i, int j) {
-    if (storage == RFI_ArrayOfStructures) {
+    if (STORAGE == ArrayOfStructures) {
       return tab[i*particle_size + j];
     } else {
       return tab[i + j*totsize];

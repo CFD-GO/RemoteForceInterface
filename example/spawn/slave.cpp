@@ -1,55 +1,30 @@
 #include <mpi.h>
+#include "../../MPMD.hpp"
 #include "../../RemoteForceInterface.hpp"
+#include "../Common.hpp"
 
 int main(int argc, char *argv[])
 {
    int ret;
+   MPMDHelper MPMD;
+   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle, rfi::StructureOfArrays > RFI;
+
    MPI_Init(&argc, &argv);
+   MPMD.Init(MPI_COMM_WORLD, "SLAVE");
 
-   MPI_Comm parent;
+   MPMD.Identify();
 
-   MPI_Comm_get_parent(&parent);
-   if (parent == MPI_COMM_NULL) {
-     error("No parent!\n");
+   MPMDIntercomm inter = MPMD.parent;
+   if (!inter) {
+     ERROR("Didn't find parent in MPMD\n");
      return -1;
    }
 
-   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle > RFI(parent);
-   RFI.name = "slave";
+   ret = RFI.Connect(inter.work);
+   if (ret) return ret;
+   assert(RFI.Connected());
    
-   if (! RFI.Connected() ) {
-   /* This should never happen */
-     ERROR("Not connected. Exit."); // LCOV_EXCL_LINE
-     return -1; // LCOV_EXCL_LINE
-   }
-   
-   RFI.Negotiate( RFI_ArrayOfStructures | RFI_StructureOfArrays, RFI_Rot );
-
-   for (int i = 0; i < RFI.Workers(); i++) {
-     RFI.Size(i)++;
-   }
-   RFI.Alloc();
-   for (int i = 0; i < RFI.Workers(); i++) {
-     RFI.SetData(i, RFI_DATA_R, 1.0);
-     RFI.SetData(i, RFI_DATA_POS+0,  0.0);
-     RFI.SetData(i, RFI_DATA_POS+1,  0.0);
-     RFI.SetData(i, RFI_DATA_POS+2,  0.0);
-     RFI.SetData(i, RFI_DATA_VEL+0,  0.0);
-     RFI.SetData(i, RFI_DATA_VEL+1,  0.0);
-     RFI.SetData(i, RFI_DATA_VEL+2,  0.0);
-     if (RFI.Rot()) {
-       RFI.SetData(i, RFI_DATA_ANGVEL+0,  0.0);
-       RFI.SetData(i, RFI_DATA_ANGVEL+1,  0.0);
-       RFI.SetData(i, RFI_DATA_ANGVEL+2,  0.0);
-     }
-   }
-   
-   for (int iter = 0; iter < 10; iter++) {
-       if ( ! RFI.Active() ) break;
-       RFI.SendSizes();
-       RFI.SendParticles();
-       RFI.SendForces();
-   }
+   RunForceIntegrator(RFI);
    
    RFI.Close();
 
