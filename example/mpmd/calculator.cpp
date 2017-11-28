@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 
    MPMDIntercomm inter = MPMD["ForceIntegrator"];
    if (!inter) {
-     ERROR("Didn't find ForceIntegrator in MPMD\n");
+     fprintf(stderr,"Didn't find ForceIntegrator in MPMD\n");
      return -1;
    }
 

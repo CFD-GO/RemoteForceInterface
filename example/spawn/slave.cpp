@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 
    MPMDIntercomm inter = MPMD.parent;
    if (!inter) {
-     ERROR("Didn't find parent in MPMD\n");
+     fprintf(stderr,"Didn't find parent in MPMD\n");
      return -1;
    }
 

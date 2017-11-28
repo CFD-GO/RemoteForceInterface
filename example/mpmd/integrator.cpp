@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
    MPMDIntercomm inter = MPMD["ForceCalculator"];
    if (!inter) {
-     ERROR("Didn't find ForceCalculator in MPMD\n");
+     fprintf(stderr,"Didn't find ForceCalculator in MPMD\n");
      return -1;
    }
 

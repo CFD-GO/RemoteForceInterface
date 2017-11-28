@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
    int how_many_spawn = MPMD.universe_size - MPMD.world_size;
    if (how_many_spawn < 1) {
-     ERROR("Not enough space for spawning\n");
+     fprintf(stderr, "Not enough space for spawning\n");
      exit(-1);
    }
    printf("how_many_spawn: %d\n", how_many_spawn);
