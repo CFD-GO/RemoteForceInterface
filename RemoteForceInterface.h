@@ -44,7 +44,7 @@ enum rfi_storage_t {
 };
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE = ArrayOfStructures, typename real_t = double >
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE = ArrayOfStructures, typename rfi_real_t = double >
 class RemoteForceInterface {
 private:
   int world_size; ///< Size of current program world
@@ -55,13 +55,13 @@ private:
   MPI_Comm intercomm; ///< Intercomm between master and slave
   size_t ntab; ///< Length of tab
   size_t totsize; ///< Total number of particles
-  std::vector<real_t> tab; ///< Array storing all the data of particles
+  std::vector<rfi_real_t> tab; ///< Array storing all the data of particles
   std::vector<size_t> sizes; ///< Array of sizes of data recieved from each slave/master 
   std::vector<size_t> offsets; ///< Array of offsets of data recieved from each slave/master
   std::vector<MPI_Request> reqs; ///< Array of MPI requests for non-blocking calls
   std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
-  MPI_Datatype MPI_REAL_T; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
-  MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for real_t (either MPI_FLOAT or MPI_DOUBLE)
+  MPI_Datatype MPI_RFI_REAL_T; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
+  MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
   int particle_size;
   bool rot;
   bool active;
@@ -78,7 +78,7 @@ public:
   int Connect(MPI_Comm intercomm_);
   void Alloc();  
   inline const size_t size() const { return totsize; }
-  inline real_t* Particles() { return &tab[0]; }
+  inline rfi_real_t* Particles() { return &tab[0]; }
   void SendSizes();
   void SendParticles();
   void SendForces();
@@ -89,14 +89,14 @@ public:
   inline size_t& Size(int i) { return sizes[i]; }
   inline bool Rot() { return rot; }
   inline int space_for_workers() { return universe_size - world_size; };
-  inline real_t& Data(size_t i, int j) {
+  inline rfi_real_t& Data(size_t i, int j) {
     if (STORAGE == ArrayOfStructures) {
       return tab[i*particle_size + j];
     } else {
       return tab[i + j*totsize];
     }
   }
-  inline void SetData(size_t i, int j, real_t val) {
+  inline void SetData(size_t i, int j, rfi_real_t val) {
     Data(i,j) = val;
   }
 };

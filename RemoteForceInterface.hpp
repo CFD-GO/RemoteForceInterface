@@ -15,8 +15,8 @@
 
 namespace rfi {
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
    connected = false;
    active = false;
    my_type = TYPE;
@@ -30,25 +30,25 @@ RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::RemoteForceInterface() : wo
      exit(-1);
    }
    particle_size = 0;
-   if (sizeof(real_t) == 8)
-    MPI_REAL_T = MPI_DOUBLE;
-   else if (sizeof(real_t) == 4)
-    MPI_REAL_T = MPI_FLOAT;
+   if (sizeof(rfi_real_t) == 8)
+    MPI_RFI_REAL_T = MPI_DOUBLE;
+   else if (sizeof(rfi_real_t) == 4)
+    MPI_RFI_REAL_T = MPI_FLOAT;
    else {
-    ERROR("Unknown type real_t in RemoteForceInterface");
+    ERROR("Unknown type rfi_real_t in RemoteForceInterface");
     exit(-1);
    }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::~RemoteForceInterface() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::~RemoteForceInterface() {
   if (intercomm != MPI_COMM_NULL) {
     ERROR("RFI: This should never happen\n"); // LCOV_EXCL_LINE
   }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
   if (! connected) return -1;
   output("RFI: %s: Starting negotiations ...\n", name);
   MPI_Barrier(intercomm);
@@ -67,9 +67,9 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate() {
   }
 
   if (STORAGE == ArrayOfStructures) {
-    MPI_Type_contiguous(particle_size, MPI_REAL_T, &MPI_PARTICLE);
+    MPI_Type_contiguous(particle_size, MPI_RFI_REAL_T, &MPI_PARTICLE);
   } else {
-    MPI_Type_vector(particle_size, 1, totsize, MPI_REAL_T, &MPI_PARTICLE);
+    MPI_Type_vector(particle_size, 1, totsize, MPI_RFI_REAL_T, &MPI_PARTICLE);
   }
   output("Adding type ...\n");
   MPI_Type_commit(&MPI_PARTICLE);
@@ -81,8 +81,8 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Negotiate() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Connect(MPI_Comm intercomm_) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm intercomm_) {
    if (connected) {
      ERROR("Already connected");
      return -1;
@@ -99,8 +99,8 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Connect(MPI_Comm interc
    return Negotiate();
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Alloc() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Alloc() {
     offsets[0] = 0;
     for (int i=0; i<workers; i++) offsets[i+1] = offsets[i] + sizes[i];
     totsize = offsets[workers];
@@ -108,15 +108,15 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Alloc() {
     if (ntab > tab.size()) tab.resize(ntab);
     if (STORAGE == ArrayOfStructures) {
     } else {
-      MPI_Type_vector(particle_size, 1, totsize, MPI_REAL_T, &MPI_PARTICLE);
+      MPI_Type_vector(particle_size, 1, totsize, MPI_RFI_REAL_T, &MPI_PARTICLE);
       output("Adding type ...\n");
       MPI_Type_commit(&MPI_PARTICLE);
     }
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Zero() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Zero() {
   totsize = 0;
   for (int i=0; i<workers; i++) {
    sizes[i] = 0;
@@ -124,8 +124,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Zero() {
   }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Close() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
   if (! Active()) return;
   output("RFI: %s: Closing ...\n", name);
   if (TYPE == ForceIntegrator) {
@@ -139,8 +139,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Close() {
   }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Finish() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
   if (! Active()) return;
   Zero();
   MPI_Barrier(intercomm);
@@ -152,8 +152,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::Finish() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::SendSizes() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   if (! Active()) return;
   output("RFI: %s: SendSizes ...\n", name);
   if (TYPE == ForceCalculator) {
@@ -169,8 +169,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::SendSizes() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::SendForces() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
     if (! Active()) return;
     debug1("RFI: %s: SendForces ...\n", name);
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
@@ -183,8 +183,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::SendForces() {
     }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, real_t >::SendParticles() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
     if (! Active()) return;
     debug1("RFI: %s: SendParticles ...\n", name);
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
