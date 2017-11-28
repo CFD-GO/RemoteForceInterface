@@ -1,16 +1,16 @@
 #include "RemoteForceInterface.h"
 
-#ifndef error
- #define error printf
-#endif
 #ifndef debug1
  #define debug1 printf
+ #define RFI_DEF_debug1
 #endif
 #ifndef ERROR
  #define ERROR printf
+ #define RFI_DEF_ERROR
 #endif
 #ifndef output
  #define output printf
+ #define RFI_DEF_output
 #endif
 
 namespace rfi {
@@ -198,3 +198,13 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
 }
 
 };
+
+#ifdef RFI_DEF_ERROR
+ #undef ERROR
+#endif
+#ifdef RFI_DEF_debug1
+ #undef debug1
+#endif
+#ifdef RFI_DEF_output
+ #undef output
+#endif
