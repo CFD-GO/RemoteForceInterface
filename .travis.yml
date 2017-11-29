@@ -7,11 +7,13 @@ addons:
       - libopenmpi-dev
       - lcov
       - time
+      - valgrind
 
 script:
     - export CXXFLAGS="-fprofile-arcs -ftest-coverage -Wno-write-strings"
+    - export TEST="timeout 10s valgrind --leak-check=yes --error-exitcode=-17"
     - make
-    - timeout 60s make test
+    - make test
 
 after_success: 
     - bash <(curl -s https://codecov.io/bash)

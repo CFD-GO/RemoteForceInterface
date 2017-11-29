@@ -62,7 +62,6 @@ private:
   std::vector<MPI_Status> stats; ///< Array of MPI status for non-blocking calls
   MPI_Datatype MPI_RFI_REAL_T; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
   MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
-  int particle_size;
   bool rot;
   bool active;
   bool connected;
@@ -71,6 +70,7 @@ private:
   void Zero();
   void Finish();
 public:
+  int particle_size;
   char * name;
   RemoteForceInterface();
   ~RemoteForceInterface();
@@ -78,6 +78,7 @@ public:
   int Connect(MPI_Comm intercomm_);
   void Alloc();  
   inline const size_t size() const { return totsize; }
+  inline const size_t mem_size() const { return ntab * sizeof(rfi_real_t); }
   inline rfi_real_t* Particles() { return &tab[0]; }
   void SendSizes();
   void SendParticles();

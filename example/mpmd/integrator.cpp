@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
    if (ret) return ret;
    assert(RFI.Connected());
    
-   RunForceIntegrator(RFI);
+   RunForceIntegrator(RFI,MPMD);
    
    RFI.Close();
 

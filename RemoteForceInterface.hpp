@@ -1,7 +1,7 @@
 #include "RemoteForceInterface.h"
 
 #ifndef debug1
- #define debug1 printf
+ #define debug1(...)
  #define RFI_DEF_debug1
 #endif
 #ifndef ERROR
@@ -93,7 +93,6 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm in
    MPI_Comm_rank(intercomm, &rank);
    sizes.resize(workers, 0);
    offsets.resize(workers+1, 0);
-   output("Connected %d. %d %d %d\n",my_type, workers, masters, rank);
    connected=true;
    Zero();
    return Negotiate();
@@ -103,14 +102,21 @@ template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_r
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Alloc() {
     offsets[0] = 0;
     for (int i=0; i<workers; i++) offsets[i+1] = offsets[i] + sizes[i];
-    totsize = offsets[workers];
-    ntab = totsize * particle_size;
-    if (ntab > tab.size()) tab.resize(ntab);
-    if (STORAGE == ArrayOfStructures) {
-    } else {
-      MPI_Type_vector(particle_size, 1, totsize, MPI_RFI_REAL_T, &MPI_PARTICLE);
-      output("Adding type ...\n");
-      MPI_Type_commit(&MPI_PARTICLE);
+    if (totsize != offsets[workers]) {
+      totsize = offsets[workers];
+      ntab = totsize * particle_size;
+      if (ntab > tab.size()) tab.resize(ntab);
+      if (STORAGE == ArrayOfStructures) {
+      } else {
+        MPI_Aint lb, extent;
+        MPI_Type_get_extent(MPI_RFI_REAL_T, &lb, &extent);
+        MPI_Datatype MPI_PARTICLE_;
+        MPI_Type_vector(particle_size, 1, totsize, MPI_RFI_REAL_T, &MPI_PARTICLE_);
+        MPI_Type_create_resized(MPI_PARTICLE_, lb, extent, &MPI_PARTICLE);
+        output("Adding type MPI ...\n");
+        MPI_Type_commit(&MPI_PARTICLE);
+        MPI_Type_get_extent(MPI_PARTICLE, &lb, &extent);
+      }
     }
 }
 
@@ -155,7 +161,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   if (! Active()) return;
-  output("RFI: %s: SendSizes ...\n", name);
+  debug1("RFI: %s: SendSizes ...\n", name);
   if (TYPE == ForceCalculator) {
     MPI_Alltoall(NULL, 0, MPI_SIZE_T, &sizes[0], 1, MPI_SIZE_T, intercomm);
     if (sizes[0] == RFI_FINISHED) {

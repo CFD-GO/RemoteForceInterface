@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 {
    int ret;
    MPMDHelper MPMD;
-   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle, rfi::StructureOfArrays > RFI;
+   rfi::RemoteForceInterface< rfi::ForceIntegrator, rfi::RotParticle > RFI;
 
    MPI_Init(&argc, &argv);
    MPMD.Init(MPI_COMM_WORLD, "SLAVE");
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
    if (ret) return ret;
    assert(RFI.Connected());
    
-   RunForceIntegrator(RFI);
+   RunForceIntegrator(RFI,MPMD);
    
    RFI.Close();
 
