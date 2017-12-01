@@ -25,7 +25,7 @@ namespace rfi {
 #define RFI_DATA_FORCE 1
 #define RFI_DATA_MOMENT 4
 
-#define RFI_DATA_SIZE 13
+#define RFI_DATA_SIZE 20
 
 #define MPI_SIZE_T MPI_UNSIGNED_LONG
 
@@ -96,6 +96,12 @@ public:
     } else {
       return tab[i + j*totsize];
     }
+  }
+  inline rfi_real_t& getPos(size_t i, int j) {
+    return Data(i, RFI_DATA_POS+j);
+  }
+  inline rfi_real_t& getRad(size_t i) {
+    return Data(i, RFI_DATA_R);
   }
   inline void SetData(size_t i, int j, rfi_real_t val) {
     Data(i,j) = val;

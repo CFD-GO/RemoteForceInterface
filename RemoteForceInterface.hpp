@@ -16,7 +16,7 @@
 namespace rfi {
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0) {
+RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() : workers(0), masters(0), intercomm(MPI_COMM_NULL), totsize(0), ntab(0) {
    connected = false;
    active = false;
    my_type = TYPE;
