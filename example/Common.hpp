@@ -5,7 +5,7 @@ void PrintParticles(const char* str, rfi_class & RFI, MPMDHelper& MPMD) {
      MPI_Barrier(MPMD.work);
      if (r == MPMD.work_rank) {
        for (size_t i = 0; i < RFI.size(); i++) {
-         printf("%s: %d: %d:", str, MPMD.work_rank,i);
+         printf("%s: %d: %ld:", str, MPMD.work_rank,i);
          for (int j=0; j<RFI.particle_size; j++) printf(" %f", RFI.Data(i, j));
          printf("\n");
        }
@@ -46,7 +46,7 @@ void RunForceIntegrator(rfi_class & RFI, MPMDHelper& MPMD)
      RFI.Size(i) = 3;
    }
    RFI.Alloc();
-   for (int i = 0; i < RFI.size(); i++) {
+   for (size_t i = 0; i < RFI.size(); i++) {
      RFI.SetData(i, RFI_DATA_R,      di+i+0.001);
      RFI.SetData(i, RFI_DATA_POS+0,  di+i+0.002);
      RFI.SetData(i, RFI_DATA_POS+1,  di+i+0.003);
