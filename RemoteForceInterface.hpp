@@ -64,7 +64,9 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool par
       MPI_Aint lb = 0;
       MPI_Type_create_resized(tmp, lb, real_size * RFI_DATA_SIZE, &MPI_PARTICLE);
       safe_MPI_Type_free(&tmp);
-      MPI_Type_indexed(1, &force_size, &parti_size, MPI_RFI_REAL_T, &MPI_FORCES); 
+      MPI_Type_indexed(1, &force_size, &parti_size, MPI_RFI_REAL_T, &tmp); 
+      MPI_Type_create_resized(tmp, real_size * parti_size, real_size * RFI_DATA_SIZE, &MPI_FORCES);
+      safe_MPI_Type_free(&tmp);
       commit_types = true;
     }
   } else {
@@ -86,15 +88,15 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool par
    output("RFI: Adding type MPI ...\n");
    MPI_Type_commit(&MPI_PARTICLE);
    MPI_Type_commit(&MPI_FORCES);
-   #ifdef DEBUG_TYPES
+//   #ifdef DEBUG_TYPES
     MPI_Aint lb,ex; int si;
     MPI_Type_get_extent(MPI_PARTICLE, &lb, &ex);
     MPI_Type_size(MPI_PARTICLE, &si);
-    output("MPI_PARTICLE: size: %d, lb: %d, ex: %d\n", si, lb, ex);
+    output("MPI_PARTICLE: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
     MPI_Type_get_extent(MPI_FORCES, &lb, &ex);
     MPI_Type_size(MPI_FORCES, &si);
-    output("MPI_FORCES: size: %d, lb: %d, ex: %d\n", si, lb, ex);
-   #endif
+    output("MPI_FORCES: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
+//   #endif
   }
 }
 
