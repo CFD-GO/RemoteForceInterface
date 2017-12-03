@@ -10,7 +10,7 @@ addons:
       - valgrind
 
 script:
-    - export CXXFLAGS="-fprofile-arcs -ftest-coverage -Wno-write-strings"
+    - export CXXFLAGS="-fprofile-arcs -ftest-coverage -Wno-write-strings  -Wall -Werror -Wno-unused-but-set-variable -Wno-unused-variable"
     - export TEST="timeout 10s valgrind --leak-check=yes --error-exitcode=-17"
     - make
     - make test
