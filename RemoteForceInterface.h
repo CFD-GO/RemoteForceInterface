@@ -53,6 +53,7 @@ private:
   int workers; ///< Number of workers
   int masters; ///< Number of masters
   MPI_Comm intercomm; ///< Intercomm between master and slave
+  MPI_Comm comm;
   size_t ntab; ///< Length of tab
   size_t totsize; ///< Total number of particles
   std::vector<rfi_real_t> tab; ///< Array storing all the data of particles
@@ -78,7 +79,7 @@ public:
   ~RemoteForceInterface();
 
   void MakeTypes(bool,bool);  
-  int Connect(MPI_Comm intercomm_);
+  int Connect(MPI_Comm comm_, MPI_Comm intercomm_);
   void Alloc();  
   inline const size_t size() const { return totsize; }
   inline const size_t mem_size() const { return ntab * sizeof(rfi_real_t); }
@@ -93,6 +94,7 @@ public:
   inline size_t& Size(int i) { return sizes[i]; }
   inline bool Rot() { return rot; }
   inline int space_for_workers() { return universe_size - world_size; };
+  template <class T> inline T Exchange(T out);
   inline rfi_real_t& Data(size_t i, int j) {
     if (STORAGE == ArrayOfStructures) {
       return tab[i*particle_size + j];

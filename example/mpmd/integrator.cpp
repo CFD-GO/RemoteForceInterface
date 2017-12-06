@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
      return -1;
    }
 
-   ret = RFI.Connect(inter.work);
+   ret = RFI.Connect(MPMD.work,inter.work);
    if (ret) return ret;
    assert(RFI.Connected());
    

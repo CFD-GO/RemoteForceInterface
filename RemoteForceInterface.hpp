@@ -17,6 +17,29 @@ namespace rfi {
 
 #define safe_MPI_Type_free(datatype) { if ((*datatype) != NULL) MPI_Type_free(datatype); }
 
+template <typename T> inline MPI_Datatype MPI_dt();
+template <> inline MPI_Datatype MPI_dt< int >() { return MPI_INT; }
+template <> inline MPI_Datatype MPI_dt< unsigned int >() { return MPI_UNSIGNED; }
+template <> inline MPI_Datatype MPI_dt< long int >() { return MPI_LONG; }
+template <> inline MPI_Datatype MPI_dt< unsigned long int >() { return MPI_UNSIGNED_LONG; }
+template <> inline MPI_Datatype MPI_dt< char >() { return MPI_CHAR; }
+
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+template <class T> inline T RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t >::Exchange(T out) {
+   T in;
+   MPI_Request request; MPI_Status status;
+   MPI_Datatype datatype = MPI_dt<T>();
+   if (rank == 0) {
+      MPI_Isend(&out, 1, datatype, 0, 123, intercomm, &request);
+      MPI_Recv(&in, 1, datatype, 0, 123, intercomm, &status);
+      MPI_Wait(&request,  &status);
+   }
+   MPI_Bcast(&in, 1, datatype, 0, comm);
+   return in;
+};
+
+
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() {
    workers = 0;
@@ -33,7 +56,7 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
      name = "ForceCalculator";
    } else {
      name = "N/A";
-     ERROR("Unknown type of RemoteForceInterface");
+     ERROR("RFI: Unknown type of RemoteForceInterface");
      exit(-1);
    }
    particle_size = 0;
@@ -42,7 +65,7 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
    else if (sizeof(rfi_real_t) == 4)
     MPI_RFI_REAL_T = MPI_FLOAT;
    else {
-    ERROR("Unknown type rfi_real_t in RemoteForceInterface");
+    ERROR("RFI: Unknown type rfi_real_t in RemoteForceInterface");
     exit(-1);
    }
 }
@@ -93,15 +116,6 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool par
    output("RFI: Adding type MPI ...\n");
    MPI_Type_commit(&MPI_PARTICLE);
    MPI_Type_commit(&MPI_FORCES);
-//   #ifdef DEBUG_TYPES
-    MPI_Aint lb,ex; int si;
-    MPI_Type_get_extent(MPI_PARTICLE, &lb, &ex);
-    MPI_Type_size(MPI_PARTICLE, &si);
-    output("MPI_PARTICLE: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
-    MPI_Type_get_extent(MPI_FORCES, &lb, &ex);
-    MPI_Type_size(MPI_FORCES, &si);
-    output("MPI_FORCES: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
-//   #endif
   }
 }
 
@@ -113,10 +127,9 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
   MPI_Barrier(intercomm);
 
   int my_rot = ROT == RotParticle;
-  int other_rot;
-  MPI_Allreduce( &my_rot, &other_rot, 1, MPI_INT, MPI_LAND, intercomm);
+  int other_rot = Exchange(my_rot);
   rot = my_rot && other_rot;
-  
+
   if (rot) {
    particle_size = RFI_DATA_SIZE;
    output("RFI: %s: Decided to calculate with rotation\n",name);
@@ -125,12 +138,37 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
    output("RFI: %s: Decided to calculate without rotation\n",name);
   }
 
-   MPI_Aint lb;
-   MPI_Type_get_extent(MPI_RFI_REAL_T, &lb, &real_size);
-   MPI_PARTICLE = NULL;
-   MPI_FORCES = NULL;
+  
+
+  MPI_Aint lb,ex; int si, other_si;
+  MPI_Type_size(MPI_RFI_REAL_T, &si);
+  real_size = si;
+  other_si = Exchange(si);
+  if (si != other_si) {
+    ERROR("RFI: Sizes of float type mismatch\n");
+    exit(-1);
+  }
+  MPI_PARTICLE = NULL;
+  MPI_FORCES = NULL;
 
   MakeTypes(true,true);
+  
+  MPI_Type_get_extent(MPI_PARTICLE, &lb, &ex);
+  MPI_Type_size(MPI_PARTICLE, &si);
+  output("RFI: MPI_PARTICLE: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
+  other_si = Exchange(si);
+  if (si != other_si) {
+    ERROR("RFI: Sizes of particle data mismatch\n");
+    exit(-1);
+  }
+  MPI_Type_get_extent(MPI_FORCES, &lb, &ex);
+  MPI_Type_size(MPI_FORCES, &si);
+  output("RFI: MPI_FORCES: size: %d, lb: %ld, ex: %ld\n", si, lb, ex);
+  other_si = Exchange(si);
+  if (si != other_si) {
+    ERROR("RFI: Sizes of force data mismatch\n");
+    exit(-1);
+  }
 
   output("RFI: %s: Finished negotiations\n",name);
   MPI_Barrier(intercomm);
@@ -140,11 +178,12 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
 
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm intercomm_) {
+int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm comm_, MPI_Comm intercomm_) {
    if (connected) {
-     ERROR("Already connected");
+     ERROR("RFI: Already connected");
      return -1;
    }
+   comm = comm_;
    intercomm = intercomm_;
    MPI_Comm_remote_size(intercomm, &workers);
    MPI_Comm_size(intercomm, &masters);
