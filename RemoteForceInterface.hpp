@@ -23,6 +23,8 @@ template <> inline MPI_Datatype MPI_dt< unsigned int >() { return MPI_UNSIGNED; 
 template <> inline MPI_Datatype MPI_dt< long int >() { return MPI_LONG; }
 template <> inline MPI_Datatype MPI_dt< unsigned long int >() { return MPI_UNSIGNED_LONG; }
 template <> inline MPI_Datatype MPI_dt< char >() { return MPI_CHAR; }
+template <> inline MPI_Datatype MPI_dt< float >() { return MPI_FLOAT; }
+template <> inline MPI_Datatype MPI_dt< double >() { return MPI_DOUBLE; }
 
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
@@ -60,13 +62,14 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
      exit(-1);
    }
    particle_size = 0;
-   if (sizeof(rfi_real_t) == 8)
-    MPI_RFI_REAL_T = MPI_DOUBLE;
-   else if (sizeof(rfi_real_t) == 4)
-    MPI_RFI_REAL_T = MPI_FLOAT;
-   else {
-    ERROR("RFI: Unknown type rfi_real_t in RemoteForceInterface");
-    exit(-1);
+   MPI_RFI_REAL_T = MPI_dt< rfi_real_t >();
+   switch (sizeof(rfi_real_t)) {
+   case 8:
+   case 4:
+     break;
+   default:   
+     ERROR("RFI: Unknown type rfi_real_t in RemoteForceInterface");
+     exit(-1);
    }
 }
 
@@ -123,7 +126,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool par
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
   if (! connected) return -1;
-  output("RFI: %s: Starting negotiations ...\n", name);
+  output("RFI: %s: Starting negotiations ...\n", name.c_str());
   MPI_Barrier(intercomm);
 
   int my_rot = ROT == RotParticle;
@@ -132,13 +135,11 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
 
   if (rot) {
    particle_size = RFI_DATA_SIZE;
-   output("RFI: %s: Decided to calculate with rotation\n",name);
+   output("RFI: %s: Decided to calculate with rotation\n",name.c_str());
   } else {
    particle_size = RFI_DATA_SIZE;
-   output("RFI: %s: Decided to calculate without rotation\n",name);
+   output("RFI: %s: Decided to calculate without rotation\n",name.c_str());
   }
-
-  
 
   MPI_Aint lb,ex; int si, other_si;
   MPI_Type_size(MPI_RFI_REAL_T, &si);
@@ -170,7 +171,7 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
     exit(-1);
   }
 
-  output("RFI: %s: Finished negotiations\n",name);
+  output("RFI: %s: Finished negotiations\n",name.c_str());
   MPI_Barrier(intercomm);
   active = true;
   return 0;
@@ -220,7 +221,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Zero() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
   if (! Active()) return;
-  output("RFI: %s: Closing ...\n", name);
+  output("RFI: %s: Closing ...\n", name.c_str());
   if (TYPE == ForceIntegrator) {
    for (int i=0; i<workers; i++) {
     sizes[i] = RFI_FINISHED;
@@ -237,7 +238,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
   if (! Active()) return;
   Zero();
   MPI_Barrier(intercomm);
-  output("RFI: %s: Closed.\n", name);
+  output("RFI: %s: Closed.\n", name.c_str());
   MPI_Comm_free(&intercomm);
   intercomm = MPI_COMM_NULL;
   connected = false;
@@ -248,7 +249,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   if (! Active()) return;
-  debug1("RFI: %s: SendSizes ...\n", name);
+  debug1("RFI: %s: SendSizes ...\n", name.c_str());
   if (TYPE == ForceCalculator) {
     MPI_Alltoall(NULL, 0, MPI_SIZE_T, &sizes[0], 1, MPI_SIZE_T, intercomm);
     if (sizes[0] == RFI_FINISHED) {
@@ -265,7 +266,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
     if (! Active()) return;
-    debug1("RFI: %s: SendForces ...\n", name);
+    debug1("RFI: %s: SendForces ...\n", name.c_str());
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
       if (TYPE == ForceCalculator) {
         MPI_Send(&Data(offsets[i],0), sizes[i], MPI_FORCES, i, 0xF1, intercomm);
@@ -279,7 +280,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
     if (! Active()) return;
-    debug1("RFI: %s: SendParticles ...\n", name);
+    debug1("RFI: %s: SendParticles ...\n", name.c_str());
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
       if (TYPE == ForceCalculator) {
         MPI_Status stat;

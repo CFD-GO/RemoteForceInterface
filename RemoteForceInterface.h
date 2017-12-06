@@ -74,7 +74,7 @@ private:
   MPI_Aint real_size;
 public:
   int particle_size;
-  char * name;
+  std::string name;
   RemoteForceInterface();
   ~RemoteForceInterface();
 
