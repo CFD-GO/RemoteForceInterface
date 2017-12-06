@@ -247,25 +247,69 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
 
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vector<MPI_Request>& reqs) {
+  static std::vector<MPI_Status> stats;
+  if (reqs.size() < 1) return;
+  stats.resize(reqs.size());
+  MPI_Waitall(reqs.size(), &reqs[0], &stats[0]);
+}
+
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendSizes() {
+  debug1("RFI: %s: ISendSizes ...\n", name.c_str());
+  for (int i=0; i<workers; i++) {
+   MPI_Request req;
+   if (TYPE == ForceCalculator) {
+     MPI_Irecv(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm, &req);
+   } else {
+     MPI_Isend(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm, &req);
+   }
+   sizes_req.push_back(req);
+  }
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendSizes() {
+  debug1("RFI: %s: WSendSizes ...\n", name.c_str());
+  WaitAll(sizes_req);
+}
+
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   if (! Active()) return;
   debug1("RFI: %s: SendSizes ...\n", name.c_str());
-  for (int i=0; i<workers; i++) {
-   if (TYPE == ForceCalculator) {
-     MPI_Status stat;
-     MPI_Recv(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm, &stat);
-   } else {
-     MPI_Send(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm);
-   }
+  ISendSizes();
+  WSendSizes();
+  if (TYPE == ForceCalculator) {
+    if (sizes[0] == RFI_FINISHED) {
+     Finish();
+    } else {
+     Alloc();
+    }
   }
-   if (TYPE == ForceCalculator) {
-     if (sizes[0] == RFI_FINISHED) {
-      Finish();
-     } else {
-      Alloc();
-     }
-   }
+}
 
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendForces() {
+    debug1("RFI: %s: ISendForces ...\n", name.c_str());
+    for (int i=0; i<workers; i++) if (sizes[i] > 0) {
+      MPI_Request req;
+      if (TYPE == ForceCalculator) {
+        MPI_Isend(&Data(offsets[i],0), sizes[i], MPI_FORCES, i, 0xF1, intercomm, &req);
+      } else {
+        MPI_Irecv(&Data(offsets[i],0), sizes[i], MPI_FORCES, i, 0xF1, intercomm, &req);
+      }
+      forces_req.push_back(req);
+    }
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendForces() {
+  debug1("RFI: %s: WSendForces ...\n", name.c_str());
+  WaitAll(forces_req);
 }
 
 
@@ -273,28 +317,36 @@ template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_r
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
     if (! Active()) return;
     debug1("RFI: %s: SendForces ...\n", name.c_str());
+    ISendForces();
+    WSendForces();
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendParticles() {
+    debug1("RFI: %s: ISendParticles ...\n", name.c_str());
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
+      MPI_Request req;
       if (TYPE == ForceCalculator) {
-        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_FORCES, i, 0xF1, intercomm);
+        MPI_Irecv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm, &req);
       } else {
-        MPI_Status stat;
-        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_FORCES, i, 0xF1, intercomm, &stat);
+        MPI_Isend(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm, &req);
       }
+      particles_req.push_back(req);
     }
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendParticles() {
+    debug1("RFI: %s: WSendParticles ...\n", name.c_str());
+    WaitAll(particles_req);
 }
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
     if (! Active()) return;
     debug1("RFI: %s: SendParticles ...\n", name.c_str());
-    for (int i=0; i<workers; i++) if (sizes[i] > 0) {
-      if (TYPE == ForceCalculator) {
-        MPI_Status stat;
-        MPI_Recv(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm, &stat);
-      } else {
-        MPI_Send(&Data(offsets[i],0), sizes[i], MPI_PARTICLE, i, 0xF2, intercomm);
-      }
-    }
+    ISendParticles();
+    WSendParticles();
 }
 
 };
