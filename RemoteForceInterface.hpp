@@ -15,6 +15,8 @@
 
 namespace rfi {
 
+const int version = 0x000101;
+
 #define safe_MPI_Type_free(datatype) { if ((*datatype) != NULL) MPI_Type_free(datatype); }
 
 template <typename T> inline MPI_Datatype MPI_dt();
@@ -129,6 +131,12 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
   if (! connected) return -1;
   output("RFI: %s: Starting negotiations ...\n", name.c_str());
   MPI_Barrier(intercomm);
+  
+  int other_version = Exchange(version);
+  if (version != other_version) {
+    ERROR("RFI: RemoteForceInterface version mismatch. Exiting.\n");
+    exit(-1);
+  }
 
   int my_rot = ROT == RotParticle;
   int other_rot = Exchange(my_rot);
