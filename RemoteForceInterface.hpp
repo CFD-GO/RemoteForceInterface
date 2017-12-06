@@ -250,16 +250,22 @@ template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_r
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   if (! Active()) return;
   debug1("RFI: %s: SendSizes ...\n", name.c_str());
-  if (TYPE == ForceCalculator) {
-    MPI_Alltoall(NULL, 0, MPI_SIZE_T, &sizes[0], 1, MPI_SIZE_T, intercomm);
-    if (sizes[0] == RFI_FINISHED) {
-     Finish();
-    } else {
-     Alloc();
-    }
-  } else {
-    MPI_Alltoall(&sizes[0], 1, MPI_SIZE_T, NULL, 0, MPI_SIZE_T, intercomm);
+  for (int i=0; i<workers; i++) {
+   if (TYPE == ForceCalculator) {
+     MPI_Status stat;
+     MPI_Recv(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm, &stat);
+   } else {
+     MPI_Send(&sizes[i], 1, MPI_SIZE_T, i, 0xF0, intercomm);
+   }
   }
+   if (TYPE == ForceCalculator) {
+     if (sizes[0] == RFI_FINISHED) {
+      Finish();
+     } else {
+      Alloc();
+     }
+   }
+
 }
 
 
