@@ -77,6 +77,12 @@ private:
   std::vector< rfi_real_t > unit;
   bool non_trivial_units;
   bool can_cope_with_units;
+  void ISendSizes();
+  void WSendSizes();
+  void ISendParticles();
+  void WSendParticles();
+  void ISendForces();
+  void WSendForces();
 public:
   int particle_size;
   std::string name;
@@ -89,16 +95,11 @@ public:
   inline const size_t size() const { return totsize; }
   inline const size_t mem_size() const { return ntab * sizeof(rfi_real_t); }
   inline rfi_real_t* Particles() { return &tab[0]; }
+  void CanCopeWithUnits(bool ccwu_);
   void WaitAll(std::vector<MPI_Request>& reqs);
   void SendSizes();
-  void ISendSizes();
-  void WSendSizes();
   void SendParticles();
-  void ISendParticles();
-  void WSendParticles();
   void SendForces();
-  void ISendForces();
-  void WSendForces();
   void Close();
   inline bool Active() { return active; }
   inline bool Connected() { return connected; }

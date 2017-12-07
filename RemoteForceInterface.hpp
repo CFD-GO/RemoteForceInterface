@@ -15,7 +15,7 @@
 
 namespace rfi {
 
-const int version = 0x000101;
+const int version = 0x000102;
 
 #define safe_MPI_Type_free(datatype) { if ((*datatype) != NULL) MPI_Type_free(datatype); }
 
@@ -107,12 +107,24 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::~RemoteForceInterface()
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::setUnits(rfi_real_t meter, rfi_real_t second, rfi_real_t kilogram) {
+ if (Connected()) {
+   ERROR("Units can be set only before connection is established\n");
+   exit(-1);
+ }
  base_units[0] = meter;
  base_units[1] = second;
  base_units[2] = kilogram;
  non_trivial_units = true;
 }
 
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::CanCopeWithUnits(bool ccwu_) {
+   if (Connected()) {
+     ERROR("You can set the can_cope_with_units flag only before connection is established\n");
+     exit(-1);
+   }
+   can_cope_with_units = ccwu_;
+}
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool particle_size_change, bool totsize_change) {
