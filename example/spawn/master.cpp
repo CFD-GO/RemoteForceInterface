@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
    if (ret) return ret;
    assert(RFI.Connected());
    
-   RunForceCalculator(RFI,MPMD);
+   RunForceCalculator(3,RFI,MPMD);
 
    RFI.Close();
 

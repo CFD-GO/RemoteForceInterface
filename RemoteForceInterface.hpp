@@ -12,6 +12,9 @@
  #define output printf
  #define RFI_DEF_output
 #endif
+#ifndef STRING_LEN
+ #define STRING_LEN 1024*4
+#endif
 
 namespace rfi {
 
