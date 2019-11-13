@@ -66,6 +66,10 @@ private:
   MPI_Datatype MPI_RFI_REAL_T; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
   MPI_Datatype MPI_PARTICLE; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
   MPI_Datatype MPI_FORCES; ///< The MPI datatype handle for rfi_real_t (either MPI_FLOAT or MPI_DOUBLE)
+  std::vector<double> sizesStats;
+  size_t sizesStatsNum;
+  std::vector<double> waitStats; 
+  std::vector<size_t> waitStatsNum; 
   bool rot;
   bool active;
   bool connected;
@@ -73,6 +77,10 @@ private:
   int Negotiate();
   void Zero();
   void Finish();
+  bool stats;
+  std::string stats_prefix;
+  std::string stats_filename;
+  int stats_iter;
   MPI_Aint real_size;
   rfi_real_t base_units[3];
   std::vector< rfi_real_t > unit;
@@ -84,6 +92,9 @@ private:
   void WSendParticles();
   void ISendForces();
   void WSendForces();
+  void allocStats();
+  void saveSizesStats();
+  void saveWaitStats(int index);
 public:
   int particle_size;
   std::string name;
@@ -98,6 +109,7 @@ public:
   inline rfi_real_t* Particles() { return &tab[0]; }
   void CanCopeWithUnits(bool ccwu_);
   void WaitAll(std::vector<MPI_Request>& reqs);
+  void printStats();
   void SendSizes();
   void SendParticles();
   void SendForces();
@@ -107,9 +119,11 @@ public:
   inline int Workers() { return workers; }
   inline size_t& Size(int i) { return sizes[i]; }
   inline bool Rot() { return rot; }
+  void enableStats(const char * filename, int iter);
   inline int space_for_workers() { return universe_size - world_size; };
   template <class T> inline T Exchange(T out);
   template <class T> inline std::vector<T> Exchange(std::vector<T> out);
+  template <class T> inline std::basic_string<T> Exchange(std::basic_string<T> out);
   void setUnits(rfi_real_t meter, rfi_real_t second, rfi_real_t kilogram);
   inline rfi_real_t& RawData(size_t i, int j) {
     if (STORAGE == ArrayOfStructures) {
