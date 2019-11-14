@@ -18,8 +18,10 @@ template <class rfi_class>
 void RunForceCalculator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
 {
    double di = 100.0 * MPMD.work_rank;
+   int active = 0;
    for (int iter = 0; iter < maxiter; iter++) {
     if (RFI.Active()) {
+        active++;
         RFI.SendSizes();
         RFI.SendParticles();
         PrintParticles("PartRecv", RFI, MPMD);
@@ -38,6 +40,7 @@ void RunForceCalculator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
     }
    }
    RFI.Close();
+   printf("Executed %d iterations (%d active)\n", maxiter, active);
 }
 
 template <class rfi_class>
@@ -63,13 +66,17 @@ void RunForceIntegrator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
      }
    }
    
+   int active = 0;
    for (int iter = 0; iter < maxiter; iter++) {
-       if ( ! RFI.Active() ) break;
-       RFI.SendSizes();
-       PrintParticles("PartSend", RFI, MPMD);
-       RFI.SendParticles();
-       RFI.SendForces();
+       if ( RFI.Active() ) {
+         active++;
+         RFI.SendSizes();
+         PrintParticles("PartSend", RFI, MPMD);
+         RFI.SendParticles();
+         RFI.SendForces();
+       }
    }
    
    RFI.Close();
+   printf("Executed %d iterations (%d active)\n", maxiter, active);
 }

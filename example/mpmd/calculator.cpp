@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include "../../MPMD.hpp"
+#define debug1 printf
 #include "../../RemoteForceInterface.hpp"
 #include "../Common.hpp"
 

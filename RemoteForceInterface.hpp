@@ -38,8 +38,8 @@ template <class T> inline T RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t
    MPI_Request request; MPI_Status status;
    MPI_Datatype datatype = MPI_dt<T>();
    if (rank == 0) {
-      MPI_Isend(&out, 1, datatype, 0, 123, intercomm, &request);
-      MPI_Recv(&in, 1, datatype, 0, 123, intercomm, &status);
+      MPI_Isend(&out, 1, datatype, 0, 0xE0, intercomm, &request);
+      MPI_Recv(&in, 1, datatype, 0, 0xE0, intercomm, &status);
       MPI_Wait(&request,  &status);
    }
    MPI_Bcast(&in, 1, datatype, 0, comm);
@@ -54,8 +54,8 @@ template <class T> inline std::vector<T> RemoteForceInterface< TYPE, ROT, STORAG
    MPI_Request request; MPI_Status status;
    MPI_Datatype datatype = MPI_dt<T>();
    if (rank == 0) {
-      MPI_Isend(&out[0], out.size(), datatype, 0, 124, intercomm, &request);
-      MPI_Recv(&in[0], in.size(), datatype, 0, 124, intercomm, &status);
+      MPI_Isend(&out[0], out.size(), datatype, 0, 0xE1, intercomm, &request);
+      MPI_Recv(&in[0], in.size(), datatype, 0, 0xE1, intercomm, &status);
       MPI_Wait(&request,  &status);
    }
    MPI_Bcast(&in[0], in.size(), datatype, 0, comm);
@@ -70,8 +70,8 @@ template <class T> inline std::basic_string<T> RemoteForceInterface< TYPE, ROT, 
    MPI_Request request; MPI_Status status;
    MPI_Datatype datatype = MPI_dt<T>();
    if (rank == 0) {
-      MPI_Isend(&out[0], out.size(), datatype, 0, 124, intercomm, &request);
-      MPI_Recv(&in[0], in.size(), datatype, 0, 124, intercomm, &status);
+      MPI_Isend(&out[0], out.size(), datatype, 0, 0xE1, intercomm, &request);
+      MPI_Recv(&in[0], in.size(), datatype, 0, 0xE1, intercomm, &status);
       MPI_Wait(&request,  &status);
    }
    MPI_Bcast(&in[0], in.size(), datatype, 0, comm);
@@ -92,6 +92,8 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
    my_type = TYPE;
    stats = false;
    stats_iter = 0;
+   kill_flag = 666;
+   alreadyKilledEverybody = false;
    if (TYPE == ForceIntegrator) {
      name = "ForceIntegrator";
    } else if (TYPE == ForceCalculator) {
@@ -401,6 +403,7 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm comm_, MPI_Comm intercomm_) {
+   int ret = 0;
    if (connected) {
      ERROR("RFI: Already connected");
      return -1;
@@ -415,7 +418,30 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm co
    connected=true;
    Zero();
    if (stats) allocStats();
-   return Negotiate();
+   ret = Negotiate();
+   if (ret) return ret;
+   
+   // Prepare stop mechanics
+   size_t death_size = 1;
+   size_t death_i = 0;
+   if (rank == 0) death_size += 1 + masters;
+   MPI_Request req;
+   death_flag.resize(death_size);
+   MPI_Irecv(&death_flag[death_i], 1, MPI_INT, 0, 0xD0, comm, &req);
+   death_req.push_back(req);
+   death_i++;
+   if (rank == 0) {
+     MPI_Irecv(&death_flag[death_i], 1, MPI_INT, 0, 0xD1, intercomm, &req);
+     death_req.push_back(req);
+     death_i++;
+     for (int i=0; i<masters; i++) {
+       MPI_Irecv(&death_flag[death_i], 1, MPI_INT, i, 0xD2, comm, &req);
+       death_req.push_back(req);
+       death_i++;
+     }
+   }
+   assert(death_i == death_size);
+   return 0;
 }
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
@@ -443,17 +469,11 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Zero() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
   if (! Active()) return;
-  output("RFI: %s: Closing ...\n", name.c_str());
-  if (TYPE == ForceIntegrator) {
-   for (int i=0; i<workers; i++) {
-    sizes[i] = RFI_FINISHED;
-   }
-   ISendSizes();
-  } else {
-    if (sizes_req.size() == 0) ISendSizes();
-  }
-  WSendSizes();
-  Finish();
+  output("RFI: %s: Sending the order to kill ...\n", name.c_str());
+  MPI_Request req;
+  MPI_Isend(&kill_flag, 1, MPI_INT, 0, 0xD2, comm, &req); // kill root
+  output("RFI: %s: Waiting for death ...\n", name.c_str());
+  WaitForDeath();
 }
 
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
@@ -472,10 +492,49 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Finish() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vector<MPI_Request>& reqs) {
   static std::vector<MPI_Status> status_vec;
+  int ind=-1;
   if (reqs.size() < 1) return;
+  size_t reqs_len = reqs.size();
+  for (size_t i=0; i<death_req.size(); i++) reqs.push_back(death_req[i]);
   status_vec.resize(reqs.size());
-  MPI_Waitall(reqs.size(), &reqs[0], &status_vec[0]);
+  for (size_t i = 0; i < reqs_len; i++) {
+    MPI_Waitany(reqs.size(), &reqs[0], &ind, &status_vec[0]);
+    if (ind == reqs_len) { Death(); return; }
+    if (ind > reqs_len) { KillEverybody(); }
+  }
   reqs.clear();
+}
+
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Death() {
+  output("Death\n");
+  Finish();
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitForDeath() {
+  std::vector<MPI_Status> status_vec;
+  int ind=-1;
+  status_vec.resize(death_req.size());
+  while (true) {
+    MPI_Waitany(death_req.size(), &death_req[0], &ind, &status_vec[0]);
+    if (ind == 0) { Death(); break; }
+    if (ind > 0) { KillEverybody(); }
+  }
+  return;
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::KillEverybody() {
+  if (alreadyKilledEverybody) return;
+  output("RFI: %s: Killing everygody ...\n", name.c_str());
+  MPI_Request req;
+  MPI_Isend(&kill_flag, 1, MPI_INT, 0, 0xD1, intercomm, &req); // kill partner
+  for (size_t i = 0; i < masters; i++) {
+    MPI_Isend(&kill_flag, 1, MPI_INT, i, 0xD0, comm, &req); // kill siblings
+  }
+  alreadyKilledEverybody = true;
 }
 
 
@@ -511,13 +570,11 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
   debug1("RFI: %s: SendSizes ...\n", name.c_str());
   if (TYPE == ForceCalculator) {
     WSendForces();
+    if (! Active()) return;
     WSendSizes();
-    if (sizes[0] == RFI_FINISHED) {
-     Finish();
-    } else {
-     Alloc();
-     ISendParticles();
-    }
+    if (! Active()) return;
+    Alloc();
+    ISendParticles();
   } else {
     ISendSizes();
   }
@@ -559,8 +616,11 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
         ISendSizes();
     } else {
         WSendSizes();
+        if (! Active()) return;
         WSendParticles();
+        if (! Active()) return;
         WSendForces();
+        if (! Active()) return;
     }
     debug1("RFI: %s: SendForces Finished\n", name.c_str());
 }
@@ -596,6 +656,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
     debug1("RFI: %s: SendParticles ...\n", name.c_str());
     if (TYPE == ForceCalculator) {
       WSendParticles();
+      if (! Active()) return;
     } else {
       ISendParticles();
       ISendForces();
