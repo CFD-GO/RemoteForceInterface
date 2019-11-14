@@ -480,9 +480,9 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
 template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
 void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vector<MPI_Request>& reqs) {
   static std::vector<MPI_Status> status_vec;
-  int ind=-1;
+  int ind = -1;
   if (reqs.size() < 1) return;
-  size_t reqs_len = reqs.size();
+  int reqs_len = reqs.size();
   for (size_t i=0; i<death_req.size(); i++) reqs.push_back(death_req[i]);
   status_vec.resize(reqs.size());
   for (size_t i = 0; i < reqs_len; i++) {
