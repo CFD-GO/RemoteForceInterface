@@ -136,6 +136,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::enableStats(const 
   } else {
     stats_prefix = filename;
   }
+  if (iter < 1) iter = 1;
   stats_iter = iter;
   if (connected) allocStats();
 }
@@ -440,7 +441,6 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm co
        death_i++;
      }
    }
-   assert(death_i == death_size);
    return 0;
 }
 
