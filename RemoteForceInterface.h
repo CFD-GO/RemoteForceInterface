@@ -77,7 +77,6 @@ private:
   int my_type;
   int Negotiate();
   void Zero();
-  void Finish();
   bool stats;
   std::string stats_prefix;
   std::string stats_filename;

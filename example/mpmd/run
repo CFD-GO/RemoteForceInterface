@@ -4,7 +4,13 @@ test -z "$1" && exit -1
 MASTERS=$1
 shift
 test -z "$1" && exit -1
+MASTER_ITER=$1
+shift
+test -z "$1" && exit -1
 SLAVES=$1
+shift
+test -z "$1" && exit -1
+SLAVE_ITER=$1
 shift
 
 ALL=$[ $MASTERS + $SLAVES ]
@@ -12,4 +18,4 @@ echo "Running with $MASTERS masters and $SLAVES slaves ($ALL in total)"
 
 for i in $(seq $ALL); do echo localhost; done >hostfile.tmp
 trap "rm hostfile.tmp" EXIT
-mpirun -np $MASTERS ./calculator : -np $SLAVES ./integrator
+mpirun -np $MASTERS ./calculator $MASTER_ITER : -np $SLAVES ./integrator $SLAVE_ITER

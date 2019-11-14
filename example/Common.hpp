@@ -21,8 +21,10 @@ void RunForceCalculator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
    int active = 0;
    for (int iter = 0; iter < maxiter; iter++) {
     if (RFI.Active()) {
-        active++;
         RFI.SendSizes();
+    }
+    if (RFI.Active()) {
+        active++;
         RFI.SendParticles();
         PrintParticles("PartRecv", RFI, MPMD);
         for (size_t i = 0; i < RFI.size(); i++) {
@@ -69,11 +71,14 @@ void RunForceIntegrator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
    int active = 0;
    for (int iter = 0; iter < maxiter; iter++) {
        if ( RFI.Active() ) {
-         active++;
          RFI.SendSizes();
          PrintParticles("PartSend", RFI, MPMD);
          RFI.SendParticles();
          RFI.SendForces();
+         if ( RFI.Active() ) {
+          // Force can be used;
+          active++;
+         }          
        }
    }
    
