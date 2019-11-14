@@ -14,6 +14,9 @@ int main(int argc, char *argv[])
    MPMD.Init(MPI_COMM_WORLD, "ForceCalculator");
    MPMD.Identify();
 
+   int iter = 3;
+   if (argc > 1) iter = atoi(argv[1]);
+
    MPMDIntercomm inter = MPMD["ForceIntegrator"];
    if (!inter) {
      fprintf(stderr,"Didn't find ForceIntegrator in MPMD\n");
@@ -24,7 +27,7 @@ int main(int argc, char *argv[])
    if (ret) return ret;
    assert(RFI.Connected());
    
-   RunForceCalculator(3, RFI, MPMD);
+   RunForceCalculator(iter, RFI, MPMD);
 
    RFI.Close();
 

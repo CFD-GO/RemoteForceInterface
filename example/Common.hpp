@@ -18,22 +18,24 @@ template <class rfi_class>
 void RunForceCalculator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
 {
    double di = 100.0 * MPMD.work_rank;
-   while (RFI.Active()) {
-       RFI.SendSizes();
-       RFI.SendParticles();
-       PrintParticles("PartRecv", RFI, MPMD);
-       for (size_t i = 0; i < RFI.size(); i++) {
-         RFI.setData(i, RFI_DATA_VOL,       di+i+0.001);
-         RFI.setData(i, RFI_DATA_FORCE+0,   di+i+0.002);
-         RFI.setData(i, RFI_DATA_FORCE+1,   di+i+0.003);
-         RFI.setData(i, RFI_DATA_FORCE+2,   di+i+0.004);
-         if (RFI.Rot()) {
-           RFI.setData(i, RFI_DATA_MOMENT+0, di+i+0.005);
-           RFI.setData(i, RFI_DATA_MOMENT+1, di+i+0.006);
-           RFI.setData(i, RFI_DATA_MOMENT+2, di+i+0.007);
-         }
-       }         
-       RFI.SendForces();
+   for (int iter = 0; iter < maxiter; iter++) {
+    if (RFI.Active()) {
+        RFI.SendSizes();
+        RFI.SendParticles();
+        PrintParticles("PartRecv", RFI, MPMD);
+        for (size_t i = 0; i < RFI.size(); i++) {
+          RFI.setData(i, RFI_DATA_VOL,       di+i+0.001);
+          RFI.setData(i, RFI_DATA_FORCE+0,   di+i+0.002);
+          RFI.setData(i, RFI_DATA_FORCE+1,   di+i+0.003);
+          RFI.setData(i, RFI_DATA_FORCE+2,   di+i+0.004);
+          if (RFI.Rot()) {
+            RFI.setData(i, RFI_DATA_MOMENT+0, di+i+0.005);
+            RFI.setData(i, RFI_DATA_MOMENT+1, di+i+0.006);
+            RFI.setData(i, RFI_DATA_MOMENT+2, di+i+0.007);
+          }
+        }         
+        RFI.SendForces();
+    }
    }
    RFI.Close();
 }
