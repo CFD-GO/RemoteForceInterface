@@ -529,7 +529,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::KillEverybody() {
   debug1("RFI: %s: Killing everygody ...\n", name.c_str());
   MPI_Request req;
   MPI_Isend(&kill_flag, 1, MPI_INT, 0, 0xD1, intercomm, &req); // kill partner
-  for (size_t i = 0; i < masters; i++) {
+  for (int i = 0; i < masters; i++) {
     MPI_Isend(&kill_flag, 1, MPI_INT, i, 0xD0, comm, &req); // kill siblings
   }
   alreadyKilledEverybody = true;
