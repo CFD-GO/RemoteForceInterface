@@ -485,7 +485,7 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vecto
   int reqs_len = reqs.size();
   for (size_t i=0; i<death_req.size(); i++) reqs.push_back(death_req[i]);
   status_vec.resize(reqs.size());
-  for (size_t i = 0; i < reqs_len; i++) {
+  for (int i = 0; i < reqs_len; i++) {
     MPI_Waitany(reqs.size(), &reqs[0], &ind, &status_vec[0]);
     if (ind == reqs_len) { Death(); break; }
     if (ind > reqs_len) { KillEverybody(); WaitForDeath(); return;}
