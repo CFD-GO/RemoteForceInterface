@@ -18,7 +18,7 @@
 
 namespace rfi {
 
-const int version = 0x000104;
+const int version = 0x000105;
 
 #define safe_MPI_Type_free(datatype) { if ((*datatype) != NULL) MPI_Type_free(datatype); }
 
@@ -32,8 +32,8 @@ template <> inline MPI_Datatype MPI_dt< float >() { return MPI_FLOAT; }
 template <> inline MPI_Datatype MPI_dt< double >() { return MPI_DOUBLE; }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-template <class T> inline T RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t >::Exchange(T out) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+template <class T> inline T RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Exchange(T out) {
    T in;
    MPI_Request request; MPI_Status status;
    MPI_Datatype datatype = MPI_dt<T>();
@@ -46,8 +46,8 @@ template <class T> inline T RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t
    return in;
 };
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-template <class T> inline std::vector<T> RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t >::Exchange(std::vector<T> out) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+template <class T> inline std::vector<T> RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Exchange(std::vector<T> out) {
    std::vector<T> in;
    size_t in_size = Exchange(out.size());
    in.resize(in_size);
@@ -62,8 +62,8 @@ template <class T> inline std::vector<T> RemoteForceInterface< TYPE, ROT, STORAG
    return in;
 };
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-template <class T> inline std::basic_string<T> RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t >::Exchange(std::basic_string<T> out) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+template <class T> inline std::basic_string<T> RemoteForceInterface< TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Exchange(std::basic_string<T> out) {
    std::basic_string<T> in;
    size_t in_size = Exchange(out.size());
    in.resize(in_size);
@@ -80,8 +80,8 @@ template <class T> inline std::basic_string<T> RemoteForceInterface< TYPE, ROT, 
 
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::RemoteForceInterface() {
    workers = 0;
    masters = 0;
    intercomm = MPI_COMM_NULL;
@@ -94,6 +94,7 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
    stats_iter = 0;
    kill_flag = 666;
    alreadyKilledEverybody = false;
+   myBox.declared = false;
    if (TYPE == ForceIntegrator) {
      name = "ForceIntegrator";
    } else if (TYPE == ForceCalculator) {
@@ -116,20 +117,21 @@ RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::RemoteForceInterface() 
    base_units[0] = 1.0;
    base_units[1] = 1.0;
    base_units[2] = 1.0;
+   auto_timestep = 1.0;
    non_trivial_units = false;
    can_cope_with_units = true;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::~RemoteForceInterface() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::~RemoteForceInterface() {
   debug1("RFI: Req left in the buffers: sizes: %d particles: %d forces: %d\n", sizes_req.size(), particles_req.size(), forces_req.size());
   if (intercomm != MPI_COMM_NULL) {
     ERROR("RFI: This should never happen\n"); // LCOV_EXCL_LINE
   }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::enableStats(const char * filename, int iter) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::enableStats(const char * filename, int iter) {
   stats = true;
   if (filename == NULL) {
     stats_prefix = "";
@@ -141,8 +143,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::enableStats(const 
   if (connected) allocStats();
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::allocStats() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::allocStats() {
    sizesStats.resize(workers, 0);
    sizesStatsNum = 0;
    waitStats.resize(12, 0);
@@ -161,14 +163,14 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::allocStats() {
    fclose(f);
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::saveSizesStats() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::saveSizesStats() {
    for (int i=0; i<workers; i++) sizesStats[i] += sizes[i];
    sizesStatsNum += 1;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::saveWaitStats(int index) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::saveWaitStats(int index) {
   double t = MPI_Wtime();
   static double t0=-0.123;
   static int index0 = -1;
@@ -180,8 +182,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::saveWaitStats(int 
   if (index == 0) t0 = t;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::printStats() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::printStats() {
   if (sizesStatsNum == stats_iter) {
    char fn[STRING_LEN];
    sprintf(fn, "RFI_stats_%s_%d.txt", name.c_str(), rank);
@@ -198,8 +200,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::printStats() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::setUnits(rfi_real_t meter, rfi_real_t second, rfi_real_t kilogram) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::setUnits(rfi_real_t meter, rfi_real_t second, rfi_real_t kilogram) {
  if (Connected()) {
    ERROR("Units can be set only before connection is established\n");
    exit(-1);
@@ -210,8 +212,17 @@ inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::setUnits(rf
  non_trivial_units = true;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::CanCopeWithUnits(bool ccwu_) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::setVar(const vars_name_t& name, const vars_value_t& value) {
+ if (Connected()) {
+   ERROR("Vars can be set only before connection is established\n");
+   exit(-1);
+ }
+ vars[name] = value;
+}
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::CanCopeWithUnits(bool ccwu_) {
    if (Connected()) {
      ERROR("You can set the can_cope_with_units flag only before connection is established\n");
      exit(-1);
@@ -219,11 +230,11 @@ inline void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::CanCopeWith
    can_cope_with_units = ccwu_;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool particle_size_change, bool totsize_change) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::MakeTypes(bool particle_size_change, bool totsize_change) {
   bool commit_types = false;
-  int parti_size = RFI_DATA_VOL - RFI_DATA_R;
-  int force_size = RFI_DATA_SIZE - RFI_DATA_VOL;
+  int parti_size = RFI_DATA_IN - RFI_DATA_START;
+  int force_size = RFI_DATA_SIZE - RFI_DATA_IN;
   MPI_Datatype tmp;
   MPI_Aint lb=0;
   if (STORAGE == ArrayOfStructures) {
@@ -262,8 +273,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::MakeTypes(bool par
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Negotiate() {
   if (! connected) return -1;
   MPI_Barrier(intercomm);
   output("RFI: %s: Starting negotiations ...\n", name.c_str());
@@ -353,13 +364,50 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
       kilogram = other_units[2]/my_units[2];
       output("RFI: %s: Unit conversion: m:%lg, s:%lg, kg:%lg\n",name.c_str(), meter, second, kilogram);
       unit[RFI_DATA_R] = meter;
-      unit[RFI_DATA_VOL] = meter*meter*meter;
+//      unit[RFI_DATA_VOL] = meter*meter*meter;
       for (int i=0;i<3;i++) {
         unit[RFI_DATA_POS+i] = meter;
         unit[RFI_DATA_VEL+i] = meter/second;
         unit[RFI_DATA_ANGVEL+i] = 1.0/second;
         unit[RFI_DATA_FORCE+i] = kilogram*meter/(second*second);
         unit[RFI_DATA_MOMENT+i] = kilogram*meter*meter/(second*second);
+      }
+      auto_timestep = 1.0/second;
+    }
+
+    typedef std::vector<std::string::value_type> vars_pack_t;
+    vars_pack_t my_vars, other_vars;
+    for (vars_t::const_iterator it = vars.begin(); it != vars.end(); it++) {
+      std::string v;
+      v = it->first;
+      for (std::string::const_iterator it2 = v.begin(); it2 != v.end(); it2++) my_vars.push_back(*it2);
+      my_vars.push_back(0);
+      v = it->second;
+      for (std::string::const_iterator it2 = v.begin(); it2 != v.end(); it2++) my_vars.push_back(*it2);
+      my_vars.push_back(0);
+    }
+    other_vars = Exchange(my_vars);
+    bool is_name = true;
+    std::string buf;
+    std::string name_buf;
+    std::string value_buf;
+    for (vars_pack_t::const_iterator it = other_vars.begin(); it != other_vars.end(); it++) {
+      if (*it == 0) {
+        if (is_name) {
+          name_buf = buf;
+          is_name = false;
+        } else {
+          value_buf = buf;
+          is_name = true;
+          debug1("RFI: %s: Received: %s = %s\n",name.c_str(), name_buf.c_str(), value_buf.c_str());
+          if (vars.find(name_buf) != vars.end()) {
+            debug1("RFI: %s: Variable overwritten.", name.c_str());
+          }
+          vars[name_buf] = value_buf;
+        }
+        buf.clear();
+      } else {
+        buf.push_back(*it);
       }
     }
   }
@@ -382,13 +430,11 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
     stats_iter = other_stats_iter;
   }
 
-
-
   if (stats) {
     allocStats();
     output("RFI: %s: Decided to calculate with statistics\n",name.c_str());
   }
-  
+
   MPI_Barrier(intercomm);
   output("RFI: %s: Finished negotiations\n",name.c_str());
   MPI_Barrier(intercomm);
@@ -402,8 +448,8 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Negotiate() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm comm_, MPI_Comm intercomm_) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Connect(MPI_Comm comm_, MPI_Comm intercomm_) {
    int ret = 0;
    if (connected) {
      ERROR("RFI: Already connected");
@@ -441,11 +487,26 @@ int RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Connect(MPI_Comm co
        death_i++;
      }
    }
+   ExchangeBoxes();
    return 0;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Alloc() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::ExchangeBoxes() {
+  std::vector< MPI_Request > reqs;
+  MPI_Request req;
+  workerBoxes.resize(workers);
+  for (int i = 0; i < workers; i++) {
+    MPI_Isend(&myBox,          sizeof(Box), MPI_BYTE, i, 0xC0, intercomm, &req);
+    MPI_Irecv(&workerBoxes[i], sizeof(Box), MPI_BYTE, i, 0xC0, intercomm, &req);
+    reqs.push_back(req);
+  }
+  WaitAll(reqs);
+}
+
+
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Alloc() {
     offsets[0] = 0;
     for (int i=0; i<workers; i++) offsets[i+1] = offsets[i] + sizes[i];
     if (totsize != offsets[workers]) {
@@ -457,8 +518,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Alloc() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Zero() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Zero() {
   totsize = 0;
   for (int i=0; i<workers; i++) {
    sizes[i] = 0;
@@ -466,8 +527,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Zero() {
   }
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Close() {
   if (! Active()) return;
   debug1("RFI: %s: Sending the order to kill ...\n", name.c_str());
   MPI_Request req;
@@ -477,8 +538,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Close() {
   WaitForDeath();
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vector<MPI_Request>& reqs) {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::WaitAll(std::vector<MPI_Request>& reqs) {
   static std::vector<MPI_Status> status_vec;
   int ind = -1;
   if (reqs.size() < 1) return;
@@ -494,8 +555,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitAll(std::vecto
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Death() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::Death() {
   debug1("RFI: %s: Death ...\n", name.c_str());
   if (! Active()) return;
   Zero();
@@ -507,8 +568,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::Death() {
   active = false;
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitForDeath() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::WaitForDeath() {
 /*  std::vector<MPI_Status> status_vec;
   int ind=-1;
   status_vec.resize(death_req.size());
@@ -523,8 +584,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WaitForDeath() {
   Death();
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::KillEverybody() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::KillEverybody() {
   if (alreadyKilledEverybody) return;
   debug1("RFI: %s: Killing everygody ...\n", name.c_str());
   MPI_Request req;
@@ -536,8 +597,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::KillEverybody() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendSizes() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::ISendSizes() {
   debug1("RFI: %s:   ISendSizes ...\n", name.c_str());
   if (stats) printStats();
   if (stats) saveWaitStats(0);
@@ -553,8 +614,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendSizes() {
   if (stats) saveWaitStats(1);
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendSizes() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::WSendSizes() {
   debug1("RFI: %s:   WSendSizes ...\n", name.c_str());
   if (stats) saveWaitStats(2);
   WaitAll(sizes_req);
@@ -562,8 +623,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendSizes() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::SendSizes() {
   if (! Active()) return;
   debug1("RFI: %s: SendSizes {\n", name.c_str());
   if (TYPE == ForceCalculator) {
@@ -580,8 +641,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendSizes() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendForces() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::ISendForces() {
     debug1("RFI: %s:   ISendForces ...\n", name.c_str());
     if (stats) saveWaitStats(8);
     for (int i=0; i<workers; i++) if (sizes[i] > 0) {
@@ -596,8 +657,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendForces() {
     if (stats) saveWaitStats(9);
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendForces() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::WSendForces() {
   debug1("RFI: %s:   WSendForces ...\n", name.c_str());
     if (stats) saveWaitStats(10);
   WaitAll(forces_req);
@@ -605,8 +666,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendForces() {
 }
 
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::SendForces() {
     if (! Active()) return;
     debug1("RFI: %s: SendForces {\n", name.c_str());
     if (TYPE == ForceCalculator) {
@@ -623,8 +684,8 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendForces() {
     debug1("RFI: %s: } // SendForces\n", name.c_str());
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendParticles() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::ISendParticles() {
     debug1("RFI: %s:   ISendParticles ...\n", name.c_str());
     if (stats) saveSizesStats();
     if (stats) saveWaitStats(4);
@@ -640,16 +701,16 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::ISendParticles() {
     if (stats) saveWaitStats(5);
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::WSendParticles() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::WSendParticles() {
     debug1("RFI: %s:   WSendParticles ...\n", name.c_str());
     if (stats) saveWaitStats(6);
     WaitAll(particles_req);
     if (stats) saveWaitStats(7);
 }
 
-template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t >
-void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::SendParticles() {
     if (! Active()) return;
     debug1("RFI: %s: SendParticles {\n", name.c_str());
     if (TYPE == ForceCalculator) {
@@ -662,7 +723,19 @@ void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t >::SendParticles() {
     debug1("RFI: %s: } // SendParticles\n", name.c_str());
 }
 
+template < rfi_type_t TYPE, rfi_rot_t ROT, rfi_storage_t STORAGE, typename rfi_real_t, typename tab_allocator >
+void RemoteForceInterface < TYPE, ROT, STORAGE, rfi_real_t, tab_allocator >::DeclareSimpleBox(rfi_real_t x0, rfi_real_t x1, rfi_real_t y0, rfi_real_t y1, rfi_real_t z0, rfi_real_t z1) {
+  myBox.declared = true;
+  myBox.lower[0] = x0 / base_units[0];
+  myBox.lower[1] = y0 / base_units[0];
+  myBox.lower[2] = z0 / base_units[0];
+  myBox.upper[0] = x1 / base_units[0];
+  myBox.upper[1] = y1 / base_units[0];
+  myBox.upper[2] = z1 / base_units[0];
+}
+
 };
+
 
 #ifdef RFI_DEF_ERROR
  #undef ERROR

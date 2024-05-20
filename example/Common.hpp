@@ -28,7 +28,7 @@ void RunForceCalculator(int maxiter, rfi_class & RFI, MPMDHelper& MPMD)
         RFI.SendParticles();
         PrintParticles("PartRecv", RFI, MPMD);
         for (size_t i = 0; i < RFI.size(); i++) {
-          RFI.setData(i, RFI_DATA_VOL,       di+i+0.001);
+//          RFI.setData(i, RFI_DATA_VOL,       di+i+0.001);
           RFI.setData(i, RFI_DATA_FORCE+0,   di+i+0.002);
           RFI.setData(i, RFI_DATA_FORCE+1,   di+i+0.003);
           RFI.setData(i, RFI_DATA_FORCE+2,   di+i+0.004);
